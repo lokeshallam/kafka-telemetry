@@ -1,0 +1,79 @@
+{
+  "type": "record",
+  "name": "Order",
+  "namespace": "com.mycompany.kafka.model",
+  "fields":
+  [
+    {
+      "name": "id",
+      "type": "long"
+    },
+    {
+      "name": "customerId",
+      "type": [ "null", "long" ],
+      "default": null
+    },
+    {
+      "name": "items",
+      "type": [
+        "null",
+        {
+          "type": "array",
+          "items" : {
+            "type": "record",
+            "name": "OrderItem",
+            "fields":
+            [
+              {
+                "name": "id",
+                "type": "long"
+              },
+              {
+                "name": "productId",
+                "type": [ "null", "long" ],
+                "default": null
+              },
+              {
+                "name": "amount",
+                "type": [
+                  "null",
+                  {
+                    "type": "bytes",
+                    "logicalType": "decimal",
+                    "scale": 2,
+                    "precision": 12
+                  }
+                ],
+                "default": null
+              }
+            ]
+          },
+          "default": []
+        }
+      ],
+      "default": null
+    },
+    {
+      "name": "created",
+      "type": [
+        "null",
+        {
+          "type": "long",
+          "logicalType": "timestamp-millis"
+        }
+      ],
+      "default": null
+    },
+    {
+      "name": "updated",
+      "type": [
+        "null",
+        {
+          "type": "long",
+          "logicalType": "timestamp-millis"
+        }
+      ],
+      "default": null
+    }
+  ]
+}

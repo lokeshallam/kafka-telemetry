@@ -1,0 +1,50 @@
+{
+  "type": "record",
+  "name": "Product",
+  "namespace": "com.mycompany.kafka.model",
+  "fields":
+  [
+    {
+      "name": "id",
+      "type": "long"
+    },
+    {
+      "name": "sku",
+      "type": [
+        "null",
+        "string"
+      ],
+      "default": null
+    },
+    {
+      "name": "description",
+      "type": [
+        "null",
+        "string"
+      ],
+      "default": null
+    },
+    {
+      "name": "created",
+      "type": [
+        "null",
+        {
+          "type": "long",
+          "logicalType": "timestamp-millis"
+        }
+      ],
+      "default": null
+    },
+    {
+      "name": "updated",
+      "type": [
+        "null",
+        {
+          "type": "long",
+          "logicalType": "timestamp-millis"
+        }
+      ],
+      "default": null
+    }
+  ]
+}

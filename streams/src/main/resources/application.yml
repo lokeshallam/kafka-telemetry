@@ -1,0 +1,61 @@
+# Spring Boot properties
+server.port: ${PORT:8080}
+
+application:
+  input.topic: ${INPUT_TOPIC}
+  output.topic: ${OUTPUT_TOPIC}
+  failure.output.topic: ${ERROR_TOPIC}
+  state.store.cleanup: ${STATE_STORE_CLEANUP:false}
+  in.memory.state.stores: ${IN_MEMORY_STATE:true}
+  stream.type: ${STREAM_TYPE:stateless}
+
+# Kafka Streams related properties
+kafka:
+  producer:
+    application.id: ${APP_ID}-errors
+    bootstrap.servers: ${BOOTSTRAP_URL}
+    security.protocol:  ${SECURITY_PROTOCOL:PLAINTEXT}
+    key.serializer: org.apache.kafka.common.serialization.LongSerializer
+    value.serializer: io.confluent.kafka.serializers.KafkaAvroSerializer
+    schema.registry.url: ${SCHEMA_REGISTRY_URL}
+  streams:
+    application.id: ${APP_ID}
+    group.id: ${GROUP_ID}
+    acks: all
+    auto.reset.offset: earliest
+    # broker connection configuration
+    bootstrap.servers: ${BOOTSTRAP_URL}
+    security.protocol:  ${SECURITY_PROTOCOL:PLAINTEXT}
+    default.key.serde: io.confluent.kafka.streams.serdes.avro.GenericAvroSerde
+    default.value.serde: io.confluent.kafka.streams.serdes.avro.GenericAvroSerde
+    default.timestamp.extractor: org.apache.kafka.streams.processor.WallclockTimestampExtractor
+    default.deserialization.exception.handler: org.apache.kafka.streams.errors.LogAndFailExceptionHandler
+    default.production.exception.handler: org.apache.kafka.streams.errors.DefaultProductionExceptionHandler
+    # for changelog topics and repartition topics, match other topics to guarantee fault tolerance
+    replication.factor: -1
+    request.timeout.ms: 60000
+    session.timeout.ms: 30000
+    #isolation.level: read_committed
+    #processing.guarantee: exactly_once_beta
+    retries: 2147483647
+    enabled.idempotence: true
+    max.in.flight.requests.per.connection: 1
+    buffered.records.per.partition: 1000
+    commit.interval.ms: 5000
+    num.stream.threads: 1
+    poll.ms: 100
+    cache.max.bytes.buffering: 10485760
+    # state store configuration
+    state.dir: ${STATE_DIR:/tmp/kstreams}
+    num.standby.replicas: 0
+    min.insync.replicas: 0
+    # schema registry configuration
+    schema.registry.url: ${SCHEMA_REGISTRY_URL}
+    schema.registry.auth: false
+    schema.cache.capacity: 2000
+    #key.subject.name.strategy: io.confluent.kafka.serializers.subject.RecordNameStrategy
+    #value.subject.name.strategy: io.confluent.kafka.serializers.subject.RecordNameStrategy
+    topology.optimization: all
+    auto.register.schemas: true
+    use.latest.version: true
+    latest.compatibility.strict: false

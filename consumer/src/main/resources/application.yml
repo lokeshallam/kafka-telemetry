@@ -1,0 +1,30 @@
+# Spring Boot properties
+server.port: ${PORT:8080}
+
+app:
+  topic: ${TOPIC}
+  offset.days: ${OFFSET_DAYS:0}
+  poll.timeout.secs: ${POLL_TIMEOUT_SECS:10}
+
+# comsumer properties
+consumer:
+  client.id: ${CLIENT_ID}
+  group.id: ${GROUP_ID}
+  # increase for higher throughput
+  max.poll.records: 500
+  # prevent out of order messages when not using an idempotent producer
+  max.in.flight.requests.per.connection: 1
+  # higher for more throughput, 1 for less latency
+  fetch.min.bytes: 1
+  # reduce for lower latency
+  fetch.max.wait.ms: 500
+  # manually commit for high durability
+  enable.auto.commit: false
+  # avoid soft failures due to network latency
+  session.timeout.ms: 30000
+  avro.use.logical.type.converters: true
+  key.deserializer: org.apache.kafka.common.serialization.LongDeserializer
+  value.deserializer: io.confluent.kafka.serializers.KafkaAvroDeserializer
+  bootstrap.servers: ${BOOTSTRAP_URL}
+  security.protocol: ${SECURITY_PROTOCOL:PLAINTEXT}
+  schema.registry.url: ${SCHEMA_REGISTRY_URL}
