@@ -26,8 +26,10 @@
 
     <properties>
         <javafaker.version>1.0.2</javafaker.version>
+        <otel.version>1.17.0</otel.version>
         <docker.buildArg.JAR_FILE>target/${project.artifactId}-${project.version}.jar</docker.buildArg.JAR_FILE>
-        <docker.buildArg.JAVA_AGENT_URL>https://github.com/open-telemetry/opentelemetry-java-instrumentation/releases/download/v1.17.0/opentelemetry-javaagent.jar</docker.buildArg.JAVA_AGENT_URL>
+        <docker.buildArg.JAVA_AGENT_1_URL>https://github.com/open-telemetry/opentelemetry-java-instrumentation/releases/download/v1.17.0/opentelemetry-javaagent.jar</docker.buildArg.JAVA_AGENT_1_URL>
+        <docker.buildArg.JAVA_AGENT_2_URL>https://repo1.maven.org/maven2/io/prometheus/jmx/jmx_prometheus_javaagent/0.17.0/jmx_prometheus_javaagent-0.17.0.jar</docker.buildArg.JAVA_AGENT_2_URL>
     </properties>
 
     <dependencyManagement>
@@ -43,12 +45,6 @@
     </dependencyManagement>
 
     <dependencies>
-        <!-- plugins -->
-        <dependency>
-            <groupId>org.apache.avro</groupId>
-            <artifactId>avro-maven-plugin</artifactId>
-            <version>${avro.version}</version>
-        </dependency>
         <!-- spring -->
         <dependency>
             <groupId>org.springframework.boot</groupId>
@@ -73,6 +69,17 @@
             <groupId>org.apache.avro</groupId>
             <artifactId>avro</artifactId>
             <version>${avro.version}</version>
+        </dependency>
+        <!-- otel -->
+        <dependency>
+            <groupId>io.opentelemetry</groupId>
+            <artifactId>opentelemetry-api</artifactId>
+            <version>${otel.version}</version>
+        </dependency>
+        <dependency>
+            <groupId>io.opentelemetry</groupId>
+            <artifactId>opentelemetry-sdk</artifactId>
+            <version>${otel.version}</version>
         </dependency>
         <!-- other -->
         <dependency>

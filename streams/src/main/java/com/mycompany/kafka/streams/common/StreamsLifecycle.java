@@ -34,6 +34,9 @@ public class StreamsLifecycle {
         streamsProperties.put(StreamsConfig.APPLICATION_ID_CONFIG, applicationId);
         streamsProperties.put(StreamsConfig.CLIENT_ID_CONFIG, applicationId);
         this.applicationContext = applicationContext;
+
+        //KafkaClientSupplier supplier = new TracingKafkaClientSupplier(tracer);
+        //this.streams = new KafkaStreams(topology, streamsProperties, supplier);
         this.streams = new KafkaStreams(topology, streamsProperties);
     }
 
