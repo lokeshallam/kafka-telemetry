@@ -12,7 +12,7 @@ services:
     environment:
       ZOOKEEPER_SERVER_ID: 1
       ZOOKEEPER_CLIENT_PORT: 2181
-      ZOOKEEPER_SERVERS: zoo1.${DOMAIN}:2888:3888;zoo2.${DOMAIN}:2888:3888;zoo3.${DOMAIN}:2888:3888
+      ZOOKEEPER_SERVERS: zoo1.${DOMAIN}:2888:3888
       ZOOKEEPER_LOG4J_ROOT_LOGLEVEL: DEBUG
       KAFKA_OPTS: "-Dzookeeper.4lw.commands.whitelist=*"
       KAFKA_HEAP_OPTS: "-Xms${ZK_HEAP} -Xmx${ZK_HEAP}"
@@ -22,54 +22,6 @@ services:
       - kafka-network
     healthcheck:
       test: ["CMD", "bash", "-c", "(echo ruok | nc zoo1.${DOMAIN} 2181) | grep -e imok"]
-      start_period: 5s
-      interval: 20s
-      timeout: 10s
-      retries: 20
-
-  zoo2:
-    image: confluentinc/cp-zookeeper:${CONFLUENT_VERSION}
-    hostname: zoo2.${DOMAIN}
-    container_name: zoo2
-    ports:
-      - "2182:2182"
-    environment:
-      ZOOKEEPER_SERVER_ID: 2
-      ZOOKEEPER_CLIENT_PORT: 2182
-      ZOOKEEPER_SERVERS: zoo1.${DOMAIN}:2888:3888;zoo2.${DOMAIN}:2888:3888;zoo3.${DOMAIN}:2888:3888
-      ZOOKEEPER_LOG4J_ROOT_LOGLEVEL: DEBUG
-      KAFKA_OPTS: "-Dzookeeper.4lw.commands.whitelist=*"
-      KAFKA_HEAP_OPTS: "-Xms${ZK_HEAP} -Xmx${ZK_HEAP}"
-    volumes:
-      - ./volumes/zoo-2/data:/var/lib/zookeeper/data
-    networks:
-      - kafka-network
-    healthcheck:
-      test: ["CMD", "bash", "-c", "(echo ruok | nc zoo2.${DOMAIN} 2182) | grep -e imok"]
-      start_period: 5s
-      interval: 20s
-      timeout: 10s
-      retries: 20
-
-  zoo3:
-    image: confluentinc/cp-zookeeper:${CONFLUENT_VERSION}
-    hostname: zoo3.${DOMAIN}
-    container_name: zoo3
-    ports:
-      - "2183:2183"
-    environment:
-      ZOOKEEPER_SERVER_ID: 3
-      ZOOKEEPER_CLIENT_PORT: 2183
-      ZOOKEEPER_SERVERS: zoo1.${DOMAIN}:2888:3888;zoo2.${DOMAIN}:2888:3888;zoo3.${DOMAIN}:2888:3888
-      ZOOKEEPER_LOG4J_ROOT_LOGLEVEL: DEBUG
-      KAFKA_OPTS: "-Dzookeeper.4lw.commands.whitelist=*"
-      KAFKA_HEAP_OPTS: "-Xms${ZK_HEAP} -Xmx${ZK_HEAP}"
-    volumes:
-      - ./volumes/zoo-3/data:/var/lib/zookeeper/data
-    networks:
-      - kafka-network
-    healthcheck:
-      test: ["CMD", "bash", "-c", "(echo ruok | nc zoo3.${DOMAIN} 2183) | grep -e imok"]
       start_period: 5s
       interval: 20s
       timeout: 10s
@@ -87,14 +39,8 @@ services:
         hard: 82920
     links:
       - zoo1
-      - zoo2
-      - zoo3
     depends_on:
       zoo1:
-        condition: service_healthy
-      zoo2:
-        condition: service_healthy
-      zoo3:
         condition: service_healthy
     ports:
       - "9093:9093"
@@ -102,7 +48,7 @@ services:
     environment:
       KAFKA_BROKER_ID: 1
       # zookeeper
-      KAFKA_ZOOKEEPER_CONNECT: zoo1.${DOMAIN}:2181,zoo2.${DOMAIN}:2182,zoo3.${DOMAIN}:2183
+      KAFKA_ZOOKEEPER_CONNECT: zoo1.${DOMAIN}:2181
       KAFKA_ZOOKEEPER_CLIENT_CNXN_SOCKET: org.apache.zookeeper.ClientCnxnSocketNetty
       # listeners
       KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: INTERNAL:PLAINTEXT,EXTERNAL:PLAINTEXT
@@ -148,14 +94,8 @@ services:
         hard: 82920
     links:
       - zoo1
-      - zoo2
-      - zoo3
     depends_on:
       zoo1:
-        condition: service_healthy
-      zoo2:
-        condition: service_healthy
-      zoo3:
         condition: service_healthy
     ports:
       - "9094:9094"
@@ -163,7 +103,7 @@ services:
     environment:
       KAFKA_BROKER_ID: 2
       # zookeeper
-      KAFKA_ZOOKEEPER_CONNECT: zoo1.${DOMAIN}:2181,zoo2.${DOMAIN}:2182,zoo3.${DOMAIN}:2183
+      KAFKA_ZOOKEEPER_CONNECT: zoo1.${DOMAIN}:2181
       KAFKA_ZOOKEEPER_CLIENT_CNXN_SOCKET: org.apache.zookeeper.ClientCnxnSocketNetty
       # listeners
       KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: INTERNAL:PLAINTEXT,EXTERNAL:PLAINTEXT
@@ -207,14 +147,8 @@ services:
         hard: 82920
     links:
       - zoo1
-      - zoo2
-      - zoo3
     depends_on:
       zoo1:
-        condition: service_healthy
-      zoo2:
-        condition: service_healthy
-      zoo3:
         condition: service_healthy
     ports:
       - "9095:9095"
@@ -222,7 +156,7 @@ services:
     environment:
       KAFKA_BROKER_ID: 3
       # zookeeper
-      KAFKA_ZOOKEEPER_CONNECT: zoo1.${DOMAIN}:2181,zoo2.${DOMAIN}:2182,zoo3.${DOMAIN}:2183
+      KAFKA_ZOOKEEPER_CONNECT: zoo1.${DOMAIN}:2181
       KAFKA_ZOOKEEPER_CLIENT_CNXN_SOCKET: org.apache.zookeeper.ClientCnxnSocketNetty
       #KAFKA_ZOOKEEPER_SSL_CIPHER_SUITES: ${TLS_CIPHER_SUITES}
       # listeners
@@ -255,41 +189,6 @@ services:
       start_period: 30s
       interval: 10s
       timeout: 10s
-      retries: 30
-
-################## CLIENT ##################
-
-  client:
-    image: kafka-client:0.0.1
-    build: ./client
-    hostname: client.${DOMAIN}
-    container_name: client
-    links:
-      - kafka1
-      - kafka2
-      - kafka3
-    depends_on:
-      kafka1:
-        condition: service_healthy
-      kafka2:
-        condition: service_healthy
-      kafka3:
-        condition: service_healthy
-    command:
-      - bash
-      - -c
-      - |
-        touch /tmp/initialized
-        tail -f /dev/null
-    volumes:
-      - ./client/scripts:/scripts:ro
-    networks:
-      - kafka-network
-    healthcheck:
-      test: ["CMD", "bash", "-c", "find /tmp/initialized"]
-      start_period: 60s
-      interval: 15s
-      timeout: 15s
       retries: 30
 
 ################## SCHEMA REGISTRY ##################
@@ -335,6 +234,118 @@ services:
       interval: 10s
       timeout: 10s
       retries: 20
+
+################## KAFKA CONNECT ##################
+
+  connect1:
+    image: confluentinc/cp-server-connect:${CONFLUENT_VERSION}
+    hostname: connect1
+    container_name: connect1
+    links:
+      - schema1
+    depends_on:
+      schema1:
+        condition: service_healthy
+    command:
+      - bash
+      - -c
+      - |
+        echo "Installing Connectors"
+        confluent-hub install --no-prompt confluentinc/kafka-connect-datagen:0.5.2
+        confluent-hub install --no-prompt confluentinc/kafka-connect-jdbc:10.2.6
+        curl -k -L https://jdbc.postgresql.org/download/postgresql-42.3.1.jar -o /usr/share/java/postgresql-42.3.1.jar
+        curl -k -L https://github.com/open-telemetry/opentelemetry-java-instrumentation/releases/download/v1.17.0/opentelemetry-javaagent.jar -o /usr/share/java/opentelemetry-javaagent.jar
+        #
+        echo "Starting Kafka Connect server"
+        /etc/confluent/docker/run &
+        sleep infinity
+    ports:
+      - 8083:8083
+    environment:
+      CONNECT_BOOTSTRAP_SERVERS: 'PLAINTEXT://lb.${DOMAIN}:29092'
+      CONNECT_SECURITY_PROTOCOL: 'PLAINTEXT'
+      CONNECT_REST_ADVERTISED_HOST_NAME: connect1
+      CONNECT_REST_PORT: 8083
+      CONNECT_GROUP_ID: docker-connect-cluster
+      CONNECT_CONFIG_STORAGE_TOPIC: docker-connect-configs
+      CONNECT_CONFIG_STORAGE_REPLICATION_FACTOR: 3
+      CONNECT_OFFSET_FLUSH_INTERVAL_MS: 10000
+      CONNECT_OFFSET_STORAGE_TOPIC: docker-connect-offsets
+      CONNECT_OFFSET_STORAGE_REPLICATION_FACTOR: 3
+      CONNECT_STATUS_STORAGE_TOPIC: docker-connect-status
+      CONNECT_STATUS_STORAGE_REPLICATION_FACTOR: 3
+      CONNECT_KEY_CONVERTER: io.confluent.connect.avro.AvroConverter
+      CONNECT_KEY_CONVERTER_SCHEMA_REGISTRY_URL: http://schema1:8081
+      CONNECT_KEY_SUBJECT_NAME_STRATEGY: io.confluent.kafka.serializers.subject.RecordNameStrategy
+      CONNECT_VALUE_CONVERTER: io.confluent.connect.avro.AvroConverter
+      CONNECT_VALUE_CONVERTER_SCHEMA_REGISTRY_URL: http://schema1:8081
+      CONNECT_VALUE_SUBJECT_NAME_STRATEGY: io.confluent.kafka.serializers.subject.RecordNameStrategy
+      CONNECT_INTERNAL_KEY_CONVERTER: org.apache.kafka.connect.json.JsonConverter
+      CONNECT_INTERNAL_VALUE_CONVERTER: org.apache.kafka.connect.json.JsonConverter
+      CONNECT_ZOOKEEPER_CONNECT: zoo1.${DOMAIN}:2181
+      CONNECT_CONNECTOR_CLIENT_CONFIG_OVERRIDE_POLICY: All
+      CONNECT_LISTENERS: http://0.0.0.0:8083
+      CONNECT_REST_ADVERTISED_LISTENER: http
+      # Set in seconds, this was changed to allow for detection of new topics and partitions quicker by the
+      # JDBC sink connector (default is five minutes). Comment out this setting for overall better consumer
+      # performance.
+      CONNECT_METADATA_MAX_AGE_MS: 60
+      CONNECT_PLUGIN_PATH: /usr/share/java,/usr/share/confluent-hub-components
+      CONNECT_LOG4J_LOGGERS: org.apache.zookeeper=ERROR,org.I0Itec.zkclient=ERROR,org.reflections=ERROR,org.apache.kafka=ERROR,org.apache.hadoop=ERROR,org.apache.parquet=ERROR,io.confluent=ERROR,org.apache.kafka.connect.runtime=ERROR
+      #KAFKA_JMX_OPTS: "-Dcom.sun.management.jmxremote -Dcom.sun.management.jmxremote.authenticate=false -Dcom.sun.management.jmxremote.ssl=false -Dcom.sun.management.jmxremote.port=9010 -Dcom.sun.management.jmxremote.rmi.port=9010 -Djava.rmi.server.hostname=10.0.0.193"
+      KAFKA_OPTS: >-
+        -javaagent:/usr/share/java/opentelemetry-javaagent.jar
+        -Dotel.service.name=connect1
+        -Dotel.traces.exporter=jaeger 
+        -Dotel.exporter.jaeger.endpoint=http://jaeger:14250
+      KAFKA_JVM_PERFORMANCE_OPTS: >-
+        -server -XX:+UseG1GC -XX:GCTimeRatio=1
+        -XX:MinHeapFreeRatio=10 -XX:MaxHeapFreeRatio=20
+        -XX:MaxGCPauseMillis=10000 -XX:InitiatingHeapOccupancyPercent=35 -XX:+ExplicitGCInvokesConcurrent
+        -XX:MaxInlineLevel=15 -Djava.awt.headless=true
+      KAFKA_HEAP_OPTS: "-Xms${CONNECT_HEAP} -Xmx${CONNECT_HEAP}"
+    volumes:
+      - ./schemas:/schemas:ro
+    networks:
+      - kafka-network
+    healthcheck:
+      test: ["CMD", "bash", "-c", "curl http://connect1:8083/connectors"]
+      start_period: 30s
+      interval: 10s
+      timeout: 10s
+      retries: 10
+
+################## CLIENT ##################
+
+  client:
+    image: kafka-client:0.0.1
+    build: ./client
+    hostname: client.${DOMAIN}
+    container_name: client
+    links:
+      - connect1
+    depends_on:
+      connect1:
+        condition: service_healthy
+    command:
+      - bash
+      - -c
+      - |
+        cd /scripts/connect
+        ./create-datagen.sh datagen demo.connect 5
+        ./create-jdbc-sink.sh jdbcsink
+        touch /tmp/initialized
+        tail -f /dev/null
+    volumes:
+      - ./client/scripts:/scripts:ro
+    networks:
+      - kafka-network
+    healthcheck:
+      test: ["CMD", "bash", "-c", "find /tmp/initialized"]
+      start_period: 60s
+      interval: 15s
+      timeout: 15s
+      retries: 30
 
 ################## LOAD BALANCER ##################
 
@@ -386,6 +397,25 @@ services:
     networks:
       - kafka-network
 
+################## POSTGRES ##################
+
+  postgres:
+    image: postgres
+    hostname: postgres
+    container_name: postgres
+    ports:
+      - 5432:5432
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgrespass
+      POSTGRES_DB: kafka
+      PGDATA: /data/postgres
+    volumes:
+      # parallels on mac os does not support hard links, that's why we have to do this
+      - postgres-data:/data/postgres
+    networks:
+      - kafka-network
+
 ################## APPS ##################
 
   producer1:
@@ -421,6 +451,12 @@ services:
       BATCH_SIZE: 1
       FREQUENCY_MS: 1000
       PORT: 9000
+      OTEL_SERVICE_NAME: "producer1"
+      OTEL_TRACES_EXPORTER: "jaeger"
+      OTEL_EXPORTER_JAEGER_ENDPOINT: "http://jaeger:14250"
+      OTEL_METRICS_EXPORTER: "none"
+      OTEL_TRACES_SAMPLER: "traceidratio"
+      OTEL_TRACES_SAMPLER_ARG: "0.5"
       JAVA_OPTS: >-
         -Xms1G -Xmx1G
         -Dcom.sun.management.jmxremote 
@@ -431,9 +467,6 @@ services:
         -Dcom.sun.management.jmxremote.local.only=false
         -Djava.rmi.server.hostname=0.0.0.0
         -javaagent:/agents/opentelemetry-javaagent.jar
-        -Dotel.service.name=producer1
-        -Dotel.traces.exporter=jaeger 
-        -Dotel.exporter.jaeger.endpoint=http://jaeger:14250
         -javaagent:/agents/jmx_prometheus_javaagent-0.17.0.jar=9010:/usr/share/jmx-exporter/kafka-client.yml
     volumes:
       - ./jmx-exporter/:/usr/share/jmx-exporter
@@ -471,6 +504,12 @@ services:
       STREAM_TYPE: stateless
       STATE_DIR: /data
       PORT: 9001
+      OTEL_SERVICE_NAME: "kstream1"
+      OTEL_TRACES_EXPORTER: "jaeger"
+      OTEL_EXPORTER_JAEGER_ENDPOINT: "http://jaeger:14250"
+      OTEL_METRICS_EXPORTER: "none"
+      OTEL_TRACES_SAMPLER: "traceidratio"
+      OTEL_TRACES_SAMPLER_ARG: "0.5"
       JAVA_OPTS: >-
         -Xms1G -Xmx1G
         -Dcom.sun.management.jmxremote
@@ -481,9 +520,6 @@ services:
         -Dcom.sun.management.jmxremote.local.only=false
         -Djava.rmi.server.hostname=0.0.0.0
         -javaagent:/agents/opentelemetry-javaagent.jar
-        -Dotel.service.name=kstream1
-        -Dotel.traces.exporter=jaeger 
-        -Dotel.exporter.jaeger.endpoint=http://jaeger:14250
         -javaagent:/agents/jmx_prometheus_javaagent-0.17.0.jar=9010:/usr/share/jmx-exporter/kafka-streams.yml
     volumes:
       - ./volumes/kstreams-1:/data
@@ -518,6 +554,12 @@ services:
       OFFSET_DAYS: 0
       POLL_TIMEOUT_SECS: 30
       PORT: 9002
+      OTEL_SERVICE_NAME: "consumer1"
+      OTEL_TRACES_EXPORTER: "jaeger"
+      OTEL_EXPORTER_JAEGER_ENDPOINT: "http://jaeger:14250"
+      OTEL_METRICS_EXPORTER: "none"
+      OTEL_TRACES_SAMPLER: "traceidratio"
+      OTEL_TRACES_SAMPLER_ARG: "0.5"
       JAVA_OPTS: >-
         -Xms1G -Xmx1G
         -Dcom.sun.management.jmxremote
@@ -528,9 +570,6 @@ services:
         -Dcom.sun.management.jmxremote.local.only=false
         -Djava.rmi.server.hostname=0.0.0.0
         -javaagent:/agents/opentelemetry-javaagent.jar
-        -Dotel.service.name=consumer1
-        -Dotel.traces.exporter=jaeger 
-        -Dotel.exporter.jaeger.endpoint=http://jaeger:14250
         -javaagent:/agents/jmx_prometheus_javaagent-0.17.0.jar=9010:/usr/share/jmx-exporter/kafka-client.yml
     volumes:
       - ./jmx-exporter/:/usr/share/jmx-exporter
@@ -545,3 +584,7 @@ services:
 networks:
   kafka-network:
     name: ${DOMAIN}
+
+volumes:
+  postgres-data:
+    name: postgres_volume_name

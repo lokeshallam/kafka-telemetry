@@ -2,10 +2,9 @@
 
 BASE=$(dirname "$0")
 cd ${BASE}
-. ../env.sh $1
-[ $? -eq 1 ] && echo "Could not setup environment variables" && exit
+. ../env.sh
 
-[[ -z "$2" ]] && { echo "Topic not specified" ; exit 1; }
-TOPIC=$2
+[[ -z "$1" ]] && { echo "Topic not specified" ; exit 1; }
+TOPIC=$1
 
-kafka-topics --bootstrap-server $BROKER_URL --command-config $KAFKA_CONFIG --describe --topic $TOPIC
+kafka-topics --bootstrap-server $BROKER_URL --describe --topic $TOPIC

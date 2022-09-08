@@ -1,7 +1,0 @@
-{"partitions":
-  [
-  	{"topic":"env.app.person","partition":0,"replicas":[4,5],"log_dirs":["any","any"]},
-  	{"topic":"env.app.person","partition":4,"replicas":[4,5],"log_dirs":["any","any"]},
-  ],
-  "version":1
-}

@@ -9,6 +9,7 @@ import org.apache.kafka.clients.consumer.ConsumerRecords;
 import org.apache.kafka.clients.consumer.KafkaConsumer;
 import org.apache.kafka.clients.consumer.OffsetAndTimestamp;
 import org.apache.kafka.common.TopicPartition;
+import org.apache.kafka.common.header.Header;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -48,6 +49,10 @@ public class Consumer {
             while (!(records = consumer.poll(Duration.ofSeconds(pollTimeoutSecs))).isEmpty()) {
                 log.info("Consumed {} records", records.count());
                 records.forEach(r -> {
+                    log.info("Record " + r.key() + " headers:");
+                    for (Header header : r.headers()) {
+                        log.info(header.key() + "=" + new String(header.value()));
+                    }
                     Long key = r.key();
                     GenericRecord value = r.value();
                     if (value != null) {

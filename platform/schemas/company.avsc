@@ -1,0 +1,122 @@
+{
+  "type": "record",
+  "name": "Company",
+  "namespace": "com.machrist.model.avro",
+  "fields":
+    [
+      {
+        "name": "id",
+        "type": {
+          "type": "long",
+          "arg.properties": {
+            "range": {
+              "min": 0, 
+              "max": 1000000000000
+            }
+          }
+        }
+      },
+      {
+        "name": "companyName",
+        "type": {
+          "type": "string",
+          "arg.properties": {
+            "options": [
+              "Bob",
+              "Steve",
+              "Archie",
+              "Gerald",
+              "Dan",
+              "Winston",
+              "Phil",
+              "Giovanni",
+              "Bobby",
+              "Rivers",
+              "Ozzy",
+              "Eddie",
+              "Elvis",
+              "Zeus",
+              "Hulk",
+              "Barnaby",
+              "Stephen",
+              "Sting"
+            ]
+          }
+        }
+      },
+      { 
+        "name": "establishedDate", 
+        "type": [ 
+          "null", 
+          { 
+            "type": "int", 
+            "logicalType": "date",
+            "arg.properties": {
+              "range": {
+                "min": 3652, 
+                "max": 18993
+              }
+            }
+          } 
+        ], 
+        "default": null, 
+        "doc": "Established date of company" 
+      },
+      { 
+        "name": "earnings", 
+        "type": [ 
+          "null", 
+          { 
+            "type": "bytes", 
+            "logicalType": "decimal", 
+            "precision": 12, 
+            "scale": 2,
+            "arg.properties": {
+              "range": {
+                "min": 0, 
+                "max": 1000000000
+              }
+            }
+          } 
+        ], 
+        "default": null, 
+        "doc": "Net earnings of company" 
+      },
+      { 
+        "name": "created", 
+        "type": [ 
+          "null", 
+          { 
+            "type": "long", 
+            "logicalType": "timestamp-millis",
+            "arg.properties": {
+              "range": {
+                "min": 315558000000, 
+                "max": 1609484400000
+              }
+            }
+          } 
+        ], 
+        "default": null, 
+        "doc": "Create timestamp" 
+      },
+      { 
+        "name": "updated", 
+        "type": [ 
+          "null", 
+          { 
+            "type": "long", 
+            "logicalType": "timestamp-millis",
+            "arg.properties": {
+              "range": {
+                "min": 315558000000, 
+                "max": 1609484400000
+              }
+            }
+          } 
+        ], 
+        "default": null, 
+        "doc": "Update timestamp" 
+      }
+    ]
+}

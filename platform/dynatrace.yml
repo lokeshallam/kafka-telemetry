@@ -1,0 +1,440 @@
+version: '3.x'
+services:
+
+################## ZOOKEEPER ##################
+
+  zoo1:
+    image: confluentinc/cp-zookeeper:${CONFLUENT_VERSION}
+    hostname: zoo1.${DOMAIN}
+    container_name: zoo1
+    ports:
+      - "2181:2181"
+    environment:
+      ZOOKEEPER_SERVER_ID: 1
+      ZOOKEEPER_CLIENT_PORT: 2181
+      ZOOKEEPER_SERVERS: zoo1.${DOMAIN}:2888:3888
+      ZOOKEEPER_LOG4J_ROOT_LOGLEVEL: DEBUG
+      KAFKA_OPTS: "-Dzookeeper.4lw.commands.whitelist=*"
+      KAFKA_HEAP_OPTS: "-Xms${ZK_HEAP} -Xmx${ZK_HEAP}"
+    volumes:
+      - ./volumes/zoo-1/data:/var/lib/zookeeper/data
+    networks:
+      - kafka-network
+    healthcheck:
+      test: ["CMD", "bash", "-c", "(echo ruok | nc zoo1.${DOMAIN} 2181) | grep -e imok"]
+      start_period: 5s
+      interval: 20s
+      timeout: 10s
+      retries: 20
+
+################## BROKERS ##################
+
+  kafka1:
+    image: confluentinc/cp-server:${CONFLUENT_VERSION}
+    hostname: kafka1.${DOMAIN}
+    container_name: kafka1
+    ulimits:
+      nofile:
+        soft: 82920
+        hard: 82920
+    links:
+      - zoo1
+    depends_on:
+      zoo1:
+        condition: service_healthy
+    ports:
+      - "9093:9093"
+      - "29093:29093"
+    environment:
+      KAFKA_BROKER_ID: 1
+      # zookeeper
+      KAFKA_ZOOKEEPER_CONNECT: zoo1.${DOMAIN}:2181
+      KAFKA_ZOOKEEPER_CLIENT_CNXN_SOCKET: org.apache.zookeeper.ClientCnxnSocketNetty
+      # listeners
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: INTERNAL:PLAINTEXT,EXTERNAL:PLAINTEXT
+      KAFKA_INTER_BROKER_LISTENER_NAME: INTERNAL
+      KAFKA_ADVERTISED_LISTENERS: INTERNAL://kafka1.${DOMAIN}:29093,EXTERNAL://localhost:9093
+      KAFKA_LISTENERS: INTERNAL://kafka1.${DOMAIN}:29093,EXTERNAL://kafka1.${DOMAIN}:9093
+      KAFKA_SECURITY_PROTOCOL: PLAINTEXT
+      KAFKA_CONFLUENT_BALANCER_ENABLE: 'true'
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 3
+      KAFKA_TRANSACTION_STATE_LOG_MIN_ISR: 2
+      KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR: 3
+      KAFKA_GROUP_INITIAL_REBALANCE_DELAY_MS: 0
+      # metrics reporter
+      KAFKA_METRIC_REPORTERS: io.confluent.metrics.reporter.ConfluentMetricsReporter
+      CONFLUENT_METRICS_REPORTER_TOPIC_REPLICAS: 3
+      CONFLUENT_METRICS_REPORTER_BOOTSTRAP_SERVERS: kafka1:29093,kafka2:29094,kafka3:29095
+      CONFLUENT_METRICS_REPORTER_SECURITY_PROTOCOL: PLAINTEXT
+      # logging
+      KAFKA_LOG4J_ROOT_LOGLEVEL: INFO
+      KAFKA_LOG4J_LOGGERS: kafka.authorizer.logger=INFO
+      #KAFKA_OPTS: '-Djavax.net.debug=ssl'
+      #KAFKA_JMX_PORT: 9010
+      #KAFKA_JMX_HOSTNAME: localhost
+      KAFKA_HEAP_OPTS: "-Xms${BROKER_HEAP} -Xmx${BROKER_HEAP}"
+    volumes:
+      - ./volumes/kafka-1:/var/lib/kafka/data
+    networks:
+      - kafka-network
+    healthcheck:
+      test: ["CMD", "bash", "-c", "kafka-cluster cluster-id --bootstrap-server kafka1.${DOMAIN}:29093 | grep -e 'Cluster ID: .*'"]
+      start_period: 30s
+      interval: 10s
+      timeout: 10s
+      retries: 10
+
+  kafka2:
+    image: confluentinc/cp-server:${CONFLUENT_VERSION}
+    hostname: kafka2.${DOMAIN}
+    container_name: kafka2
+    ulimits:
+      nofile:
+        soft: 82920
+        hard: 82920
+    links:
+      - zoo1
+    depends_on:
+      zoo1:
+        condition: service_healthy
+    ports:
+      - "9094:9094"
+      - "29094:29094"
+    environment:
+      KAFKA_BROKER_ID: 2
+      # zookeeper
+      KAFKA_ZOOKEEPER_CONNECT: zoo1.${DOMAIN}:2181
+      KAFKA_ZOOKEEPER_CLIENT_CNXN_SOCKET: org.apache.zookeeper.ClientCnxnSocketNetty
+      # listeners
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: INTERNAL:PLAINTEXT,EXTERNAL:PLAINTEXT
+      KAFKA_INTER_BROKER_LISTENER_NAME: INTERNAL
+      KAFKA_ADVERTISED_LISTENERS: INTERNAL://kafka2.${DOMAIN}:29094,EXTERNAL://localhost:9094
+      KAFKA_LISTENERS: INTERNAL://kafka2.${DOMAIN}:29094,EXTERNAL://kafka2.${DOMAIN}:9094
+      KAFKA_SECURITY_PROTOCOL: PLAINTEXT
+      KAFKA_CONFLUENT_BALANCER_ENABLE: 'true'
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 3
+      KAFKA_TRANSACTION_STATE_LOG_MIN_ISR: 2
+      KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR: 3
+      KAFKA_GROUP_INITIAL_REBALANCE_DELAY_MS: 0
+      # metrics reporter
+      KAFKA_METRIC_REPORTERS: io.confluent.metrics.reporter.ConfluentMetricsReporter
+      CONFLUENT_METRICS_REPORTER_TOPIC_REPLICAS: 3
+      CONFLUENT_METRICS_REPORTER_BOOTSTRAP_SERVERS: kafka1:29093,kafka2:29094,kafka3:29095
+      CONFLUENT_METRICS_REPORTER_SECURITY_PROTOCOL: PLAINTEXT
+      # logging
+      KAFKA_LOG4J_ROOT_LOGLEVEL: INFO
+      KAFKA_LOG4J_LOGGERS: kafka.authorizer.logger=INFO
+      #KAFKA_OPTS: '-Djavax.net.debug=ssl'
+      KAFKA_HEAP_OPTS: "-Xms${BROKER_HEAP} -Xmx${BROKER_HEAP}"
+    volumes:
+      - ./volumes/kafka-2:/var/lib/kafka/data
+    networks:
+      - kafka-network
+    healthcheck:
+      test: ["CMD", "bash", "-c", "kafka-cluster cluster-id --bootstrap-server kafka2.${DOMAIN}:29094 | grep -e 'Cluster ID: .*'"]
+      start_period: 30s
+      interval: 10s
+      timeout: 10s
+      retries: 10
+
+  kafka3:
+    image: confluentinc/cp-server:${CONFLUENT_VERSION}
+    hostname: kafka3.${DOMAIN}
+    container_name: kafka3
+    ulimits:
+      nofile:
+        soft: 82920
+        hard: 82920
+    links:
+      - zoo1
+    depends_on:
+      zoo1:
+        condition: service_healthy
+    ports:
+      - "9095:9095"
+      - "29095:29095"
+    environment:
+      KAFKA_BROKER_ID: 3
+      # zookeeper
+      KAFKA_ZOOKEEPER_CONNECT: zoo1.${DOMAIN}:2181
+      KAFKA_ZOOKEEPER_CLIENT_CNXN_SOCKET: org.apache.zookeeper.ClientCnxnSocketNetty
+      #KAFKA_ZOOKEEPER_SSL_CIPHER_SUITES: ${TLS_CIPHER_SUITES}
+      # listeners
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: INTERNAL:PLAINTEXT,EXTERNAL:PLAINTEXT
+      KAFKA_INTER_BROKER_LISTENER_NAME: INTERNAL
+      KAFKA_ADVERTISED_LISTENERS: INTERNAL://kafka3.${DOMAIN}:29095,EXTERNAL://localhost:9095
+      KAFKA_LISTENERS: INTERNAL://kafka3.${DOMAIN}:29095,EXTERNAL://kafka3.${DOMAIN}:9095
+      KAFKA_SECURITY_PROTOCOL: PLAINTEXT
+      KAFKA_CONFLUENT_BALANCER_ENABLE: 'true'
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 3
+      KAFKA_TRANSACTION_STATE_LOG_MIN_ISR: 2
+      KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR: 3
+      KAFKA_GROUP_INITIAL_REBALANCE_DELAY_MS: 0
+      # metrics reporter
+      KAFKA_METRIC_REPORTERS: io.confluent.metrics.reporter.ConfluentMetricsReporter
+      CONFLUENT_METRICS_REPORTER_TOPIC_REPLICAS: 3
+      CONFLUENT_METRICS_REPORTER_BOOTSTRAP_SERVERS: kafka1:29093,kafka2:29094,kafka3:29095
+      CONFLUENT_METRICS_REPORTER_SECURITY_PROTOCOL: PLAINTEXT
+      # logging
+      KAFKA_LOG4J_ROOT_LOGLEVEL: INFO
+      KAFKA_LOG4J_LOGGERS: kafka.authorizer.logger=INFO
+      #KAFKA_OPTS: '-Djavax.net.debug=ssl'
+      KAFKA_HEAP_OPTS: "-Xms${BROKER_HEAP} -Xmx${BROKER_HEAP}"
+    volumes:
+      - ./volumes/kafka-3:/var/lib/kafka/data
+    networks:
+      - kafka-network
+    healthcheck:
+      test: ["CMD", "bash", "-c", "kafka-cluster cluster-id --bootstrap-server kafka3.${DOMAIN}:29095 | grep -e 'Cluster ID: .*'"]
+      start_period: 30s
+      interval: 10s
+      timeout: 10s
+      retries: 30
+
+################## SCHEMA REGISTRY ##################
+
+  schema1:
+    image: confluentinc/cp-schema-registry:${CONFLUENT_VERSION}
+    hostname: schema1.${DOMAIN}
+    container_name: schema1
+    links:
+      - kafka1
+      - kafka2
+      - kafka3
+    depends_on:
+      kafka1:
+        condition: service_healthy
+      kafka2:
+        condition: service_healthy
+      kafka3:
+        condition: service_healthy
+    ports:
+      - 8081:8081
+    environment:
+      SCHEMA_REGISTRY_HOST_NAME: 'schema1'
+      SCHEMA_REGISTRY_LISTENERS: 'http://0.0.0.0:8081'
+      # kafka store
+      SCHEMA_REGISTRY_KAFKASTORE_BOOTSTRAP_SERVERS: 'PLAINTEXT://lb.${DOMAIN}:29092'
+      SCHEMA_REGISTRY_KAFKASTORE_SECURITY_PROTOCOL: 'PLAINTEXT'
+      SCHEMA_REGISTRY_KAFKASTORE_TOPIC: '_schemas'
+      SCHEMA_REGISTRY_KAFKASTORE_ZK_SESSION_TIMEOUT_MS: 60000
+      SCHEMA_REGISTRY_KAFKASTORE_TIMEOUT_MS: 10000
+      SCHEMA_REGISTRY_KAFKASTORE_INIT_TIMEOUT_MS: 120000
+      # other
+      SCHEMA_REGISTRY_INTER_INSTANCE_PROTOCOL: 'http'
+      SCHEMA_REGISTRY_SCHEMA_REGISTRY_GROUP_ID: 'schema-registry'
+      SCHEMA_REGISTRY_LEADER_ELIGIBILITY: 'true'
+      SCHEMA_REGISTRY_MODE_MUTABILITY: 'true'
+      SCHEMA_REGISTRY_DEBUG: 'true'
+      KAFKA_HEAP_OPTS: "-Xms${SCHEMA_HEAP} -Xmx${SCHEMA_HEAP}"
+    networks:
+      - kafka-network
+    healthcheck:
+      test: ["CMD", "bash", "-c", "curl http://schema1.${DOMAIN}:8081/subjects"]
+      interval: 10s
+      timeout: 10s
+      retries: 20
+
+################## CLIENT ##################
+
+  client:
+    image: kafka-client:0.0.1
+    build: ./client
+    hostname: client.${DOMAIN}
+    container_name: client
+    links:
+      - schema1
+    depends_on:
+      schema1:
+        condition: service_healthy
+    command:
+      - bash
+      - -c
+      - |
+        touch /tmp/initialized
+        tail -f /dev/null
+    volumes:
+      - ./client/scripts:/scripts:ro
+    networks:
+      - kafka-network
+    healthcheck:
+      test: ["CMD", "bash", "-c", "find /tmp/initialized"]
+      start_period: 60s
+      interval: 15s
+      timeout: 15s
+      retries: 30
+
+################## LOAD BALANCER ##################
+
+  lb:
+    image: nginx:${NGINX_VERSION}
+    hostname: lb.${DOMAIN}
+    container_name: lb
+    links:
+      - kafka1
+      - kafka2
+      - kafka3
+    depends_on:
+      kafka1:
+        condition: service_healthy
+      kafka2:
+        condition: service_healthy
+      kafka3:
+        condition: service_healthy
+    ports:
+      - "9092:9092"
+      - "29092:29092"
+    volumes:
+      - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro
+    networks:
+      - kafka-network
+
+################## APPS ##################
+
+  producer1:
+    image: com.mycompany/java-kafka-producer:0.0.1
+    hostname: producer1
+    container_name: producer1
+    links:
+      - kafka1
+      - kafka2
+      - kafka3
+      - schema1
+    depends_on:
+      kafka1:
+        condition: service_healthy
+      kafka2:
+        condition: service_healthy
+      kafka3:
+        condition: service_healthy
+      schema1:
+        condition: service_healthy
+    ports:
+      - "9000:9000"
+      - "9100:9100"
+    environment:
+      CLIENT_ID: producer1
+      BOOTSTRAP_URL: lb.mycompany.com:29092
+      SECURITY_PROTOCOL: PLAINTEXT
+      SCHEMA_REGISTRY_URL: http://schema1.mycompany.com:8081
+      TOPIC: demo.customer
+      SCHEMA: customer
+      PARTITIONS: 5
+      MESSAGES: 10000
+      BATCH_SIZE: 1
+      FREQUENCY_MS: 1000
+      PORT: 9000
+      OTEL_SERVICE_NAME: "producer1"
+      OTEL_RESOURCE_ATTRIBUTES: "service.name=producer1,service.version=0.0.1,mytag=myvalue"
+      OTEL_EXPORTER_OTLP_TRACES_ENDPOINT: ${DYNATRACE_TRACES_URL}
+      OTEL_EXPORTER_OTLP_TRACES_PROTOCOL: "http/protobuf"
+      OTEL_EXPORTER_OTLP_TRACES_HEADERS: "Authorization=Api-Token\ ${DYNATRACE_API_TOKEN}"
+      OTEL_METRICS_EXPORTER: "none"
+      OTEL_TRACES_SAMPLER: "traceidratio"
+      OTEL_TRACES_SAMPLER_ARG: "0.5"
+      JAVA_OPTS: >-
+        -Xms1G -Xmx1G
+        -javaagent:/agents/opentelemetry-javaagent.jar
+    networks:
+      - kafka-network
+    healthcheck:
+      test: ["CMD", "bash", "-c", "curl http://producer1.${DOMAIN}:9000/actuator/health | grep -e '\"status\":\"UP\"'"]
+      interval: 10s
+      timeout: 10s
+      retries: 20
+
+  kstream1:
+    image: com.mycompany/java-kafka-streams:0.0.1
+    hostname: kstream1
+    container_name: kstream1
+    links:
+      - producer1
+    depends_on:
+      producer1:
+        condition: service_healthy
+    ports:
+      - "9001:9001"
+      - "9101:9101"
+    environment:
+      APP_ID: kstream1
+      GROUP_ID: kstream1
+      BOOTSTRAP_URL: lb.mycompany.com:29092
+      SECURITY_PROTOCOL: PLAINTEXT
+      SCHEMA_REGISTRY_URL: http://schema1.mycompany.com:8081
+      INPUT_TOPIC: demo.customer
+      OUTPUT_TOPIC: demo.transform.customer
+      ERROR_TOPIC: demo.errors
+      STATE_STORE_CLEANUP: false
+      IN_MEMORY_STATE: false
+      STREAM_TYPE: stateless
+      STATE_DIR: /data
+      PORT: 9001
+      OTEL_SERVICE_NAME: "kstream1"
+      OTEL_RESOURCE_ATTRIBUTES: "service.name=kstream1,service.version=0.0.1,mytag=myvalue"
+      OTEL_EXPORTER_OTLP_TRACES_ENDPOINT: ${DYNATRACE_TRACES_URL}
+      OTEL_EXPORTER_OTLP_TRACES_PROTOCOL: "http/protobuf"
+      OTEL_EXPORTER_OTLP_TRACES_HEADERS: "Authorization=Api-Token\ ${DYNATRACE_API_TOKEN}"
+      OTEL_METRICS_EXPORTER: "none"
+      OTEL_TRACES_SAMPLER: "traceidratio"
+      OTEL_TRACES_SAMPLER_ARG: "0.5"
+      JAVA_OPTS: >-
+        -Xms1G -Xmx1G
+        -javaagent:/agents/opentelemetry-javaagent.jar
+    volumes:
+      - ./volumes/kstreams-1:/data
+    networks:
+      - kafka-network
+    healthcheck:
+      test: ["CMD", "bash", "-c", "curl http://kstream1.${DOMAIN}:9001/actuator/health | grep -e '\"status\":\"UP\"'"]
+      interval: 10s
+      timeout: 10s
+      retries: 20
+
+  consumer1:
+    image: com.mycompany/java-kafka-consumer:0.0.1
+    hostname: consumer1
+    container_name: consumer1
+    links:
+      - kstream1
+    depends_on:
+      kstream1:
+        condition: service_healthy
+    ports:
+      - "9002:9002"
+      - "9102:9102"
+    environment:
+      CLIENT_ID: consumer1
+      GROUP_ID: consumer1
+      BOOTSTRAP_URL: lb.mycompany.com:29092
+      SECURITY_PROTOCOL: PLAINTEXT
+      SCHEMA_REGISTRY_URL: http://schema1.mycompany.com:8081
+      TOPIC: demo.transform.customer
+      OFFSET_DAYS: 0
+      POLL_TIMEOUT_SECS: 30
+      PORT: 9002
+      OTEL_SERVICE_NAME: "consumer1"
+      OTEL_RESOURCE_ATTRIBUTES: "service.name=consumer1,service.version=0.0.1,mytag=myvalue"
+      OTEL_EXPORTER_OTLP_TRACES_ENDPOINT: ${DYNATRACE_TRACES_URL}
+      OTEL_EXPORTER_OTLP_TRACES_PROTOCOL: "http/protobuf"
+      OTEL_EXPORTER_OTLP_TRACES_HEADERS: "Authorization=Api-Token\ ${DYNATRACE_API_TOKEN}"
+      OTEL_METRICS_EXPORTER: "none"
+      OTEL_TRACES_SAMPLER: "traceidratio"
+      OTEL_TRACES_SAMPLER_ARG: "0.5"
+      JAVA_OPTS: >-
+        -Xms1G -Xmx1G
+        -javaagent:/agents/opentelemetry-javaagent.jar
+    networks:
+      - kafka-network
+    healthcheck:
+      test: ["CMD", "bash", "-c", "curl http://consumer1.${DOMAIN}:9002/actuator/health | grep -e '\"status\":\"UP\"'"]
+      interval: 10s
+      timeout: 10s
+      retries: 20
+
+networks:
+  kafka-network:
+    name: ${DOMAIN}
+
+volumes:
+  postgres-data:
+    name: postgres_volume_name

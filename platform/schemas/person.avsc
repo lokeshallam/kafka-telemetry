@@ -1,0 +1,184 @@
+{
+  "type": "record",
+  "name": "Person",
+  "namespace": "com.machrist.model.avro",
+  "fields":
+    [
+      {
+        "name": "id",
+        "type": {
+          "type": "long",
+          "arg.properties": {
+            "range": {
+              "min": 0, 
+              "max": 1000000000000
+            }
+          }
+        }
+      },
+      {
+        "name": "firstName",
+        "type": {
+          "type": "string",
+          "arg.properties": {
+            "options": [
+              "Bob",
+              "Steve",
+              "Archie",
+              "Gerald",
+              "Dan",
+              "Winston",
+              "Phil",
+              "Giovanni",
+              "Bobby",
+              "Rivers",
+              "Ozzy",
+              "Eddie",
+              "Elvis",
+              "Zeus",
+              "Hulk",
+              "Barnaby",
+              "Stephen",
+              "Sting"
+            ]
+          }
+        }
+      },
+      {
+        "name": "lastName",
+        "type": {
+          "type": "string",
+          "arg.properties": {
+            "options": [
+              "Johnson",
+              "St. James",
+              "Williams",
+              "Brown",
+              "Jones",
+              "Garcia",
+              "Miller",
+              "Davis",
+              "Rodriguez",
+              "Wilson",
+              "Anderson",
+              "Thomas",
+              "Martin",
+              "Moore",
+              "Taylor",
+              "Van Halen",
+              "White",
+              "Osbourne",
+              "Cuomo",
+              "Wolfe­schlegel­stein­hausen­bergerdorff",
+              "Hogan",
+              "Curry"
+            ]
+          }
+        }
+      },
+      {
+        "name": "status",
+        "type": [
+          "null",
+          {
+            "type": "enum",
+            "name": "Status",
+            "symbols": [ "NEW", "ACTIVE", "CANCELLED" ]
+          }
+        ],
+        "default": null, 
+        "doc": "Status of person"
+      },
+      {
+        "name": "age",
+        "type": [
+          "null",
+          {
+            "type": "int",
+            "arg.properties": {
+              "range": {
+                "min": 0, 
+                "max": 120
+              }
+            }
+          }
+        ],
+        "default": null,
+        "doc": "Age of person"
+      },
+      { 
+        "name": "birthDate", 
+        "type": [ 
+          "null", 
+          { 
+            "type": "int", 
+            "logicalType": "date",
+            "arg.properties": {
+              "range": {
+                "min": 3652, 
+                "max": 18993
+              }
+            }
+          } 
+        ], 
+        "default": null, 
+        "doc": "Birth date of person" 
+      },
+      { 
+        "name": "money", 
+        "type": [ 
+          "null", 
+          { 
+            "type": "bytes", 
+            "logicalType": "decimal", 
+            "precision": 12, 
+            "scale": 2,
+            "arg.properties": {
+              "range": {
+                "min": 0, 
+                "max": 1000000000
+              }
+            }
+          } 
+        ], 
+        "default": null, 
+        "doc": "Money of person" 
+      },
+      { 
+        "name": "created", 
+        "type": [ 
+          "null", 
+          { 
+            "type": "long", 
+            "logicalType": "timestamp-millis",
+            "arg.properties": {
+              "range": {
+                "min": 315558000000, 
+                "max": 1609484400000
+              }
+            }
+          } 
+        ], 
+        "default": null, 
+        "doc": "Create timestamp" 
+      },
+      { 
+        "name": "updated", 
+        "type": [ 
+          "null", 
+          { 
+            "type": "long", 
+            "logicalType": "timestamp-millis",
+            "arg.properties": {
+              "range": {
+                "min": 315558000000, 
+                "max": 1609484400000
+              }
+            }
+          } 
+        ], 
+        "default": null, 
+        "doc": "Update timestamp" 
+      }
+    ]
+}

@@ -5,6 +5,8 @@ import com.mycompany.kafka.streams.common.SerdeCreator;
 import io.confluent.kafka.schemaregistry.client.SchemaRegistryClient;
 import org.apache.avro.generic.GenericRecord;
 import org.apache.kafka.clients.producer.KafkaProducer;
+import org.apache.kafka.common.header.Header;
+import org.apache.kafka.common.header.Headers;
 import org.apache.kafka.common.serialization.Serde;
 import org.apache.kafka.common.serialization.Serdes;
 import org.apache.kafka.common.utils.Bytes;
@@ -12,14 +14,16 @@ import org.apache.kafka.streams.KeyValue;
 import org.apache.kafka.streams.StreamsBuilder;
 import org.apache.kafka.streams.Topology;
 import org.apache.kafka.streams.kstream.*;
+import org.apache.kafka.streams.processor.ProcessorContext;
 import org.apache.kafka.streams.state.KeyValueBytesStoreSupplier;
 import org.apache.kafka.streams.state.KeyValueStore;
+import org.apache.kafka.streams.state.StoreBuilder;
 import org.apache.kafka.streams.state.Stores;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.slf4j.MDC;
 
 import java.util.*;
-import java.util.concurrent.atomic.AtomicInteger;
 
 public class StatefulTopologyBuilder {
 
@@ -57,11 +61,13 @@ public class StatefulTopologyBuilder {
         log.info("Subscribing to input topic {}", inputTopic);
         final StreamsBuilder builder = new StreamsBuilder();
         builder.stream(inputTopic, Consumed.with(Serdes.Long(), serdes.createGenericSerde(false)))
+                .transformValues(new StatefulTransformerSupplier("consumer"))
                 .map((k, v) -> {
                     return new KeyValue<>(k, v);
                 })
                 .toTable(getStateStore("store", Serdes.Long(), serdes.createGenericSerde(false)))
                 .toStream()
+                .transformValues(new StatefulTransformerSupplier("producer"))
                 .to(outputTopic, Produced.with(Serdes.Long(), serdes.createGenericSerde(false)));
 
         return builder.build(streamProperties);
@@ -73,5 +79,58 @@ public class StatefulTopologyBuilder {
         KeyValueBytesStoreSupplier supplier = inMemoryStateStores ? Stores.inMemoryKeyValueStore(storeName) :
                 Stores.persistentKeyValueStore(storeName);
         return Materialized .<Long, GenericRecord>as(supplier).withKeySerde(keySerde).withValueSerde(valueSerde);
+    }
+
+    private static class StatefulTransformerSupplier implements ValueTransformerWithKeySupplier<Long, GenericRecord, GenericRecord> {
+
+        private String tag;
+
+        public StatefulTransformerSupplier(String tag) {
+            this.tag = tag;
+        }
+
+        @Override
+        public ValueTransformerWithKey<Long, GenericRecord, GenericRecord> get() {
+            return new StatefulTransformer(tag);
+        }
+
+        @Override
+        public Set<StoreBuilder<?>> stores() {
+            return ValueTransformerWithKeySupplier.super.stores();
+        }
+    }
+
+    private static class StatefulTransformer implements ValueTransformerWithKey<Long, GenericRecord, GenericRecord> {
+
+        private ProcessorContext processorContext;
+        private String tag;
+
+        public StatefulTransformer(String tag) {
+            this.tag = tag;
+        }
+
+        @Override
+        public void init(ProcessorContext processorContext) {
+            this.processorContext = processorContext;
+        }
+
+        @Override
+        public GenericRecord transform(Long key, GenericRecord value) {
+            Headers headers = processorContext.headers();
+            log.info( tag + " headers:");
+            for (Header header : headers) {
+                String headerValue = new String(header.value());
+                String[] headerValues = headerValue.split("-");
+                MDC.put("trace_id", headerValues[1]);
+                MDC.put("span_id", headerValues[2]);
+                MDC.put("trace_flags", headerValues[3]);
+                log.info(header.key() + "=" + headerValue);
+            }
+            return value;
+        }
+
+        @Override
+        public void close() {
+        }
     }
 }
