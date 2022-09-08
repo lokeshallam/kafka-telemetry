@@ -13,7 +13,7 @@
 
     <version>0.0.1</version>
     <groupId>com.mycompany</groupId>
-    <artifactId>java-metrics-tracing</artifactId>
+    <artifactId>kafka-telemetry</artifactId>
     <packaging>pom</packaging>
 
     <organization>
