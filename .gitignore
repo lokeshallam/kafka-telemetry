@@ -24,7 +24,7 @@ hs_err_pid*
 
 .idea
 target
+platform/.env
 platform/volumes
 *.iml
 *.DS_Store
-.env
