@@ -1,7 +1,7 @@
 #!/bin/bash
 
 BASE=$(dirname "$0")
-cd ${BASE}
+cd "$BASE" || { echo "Could not change to directory $BASE" ; exit 1; }
 . ../env.sh
 
 [[ -z "$1" ]] && { echo "Connector name not specified" ; exit 1; }
@@ -10,14 +10,14 @@ CONNECTOR_NAME=$1
 # create DLQ topic for jdbcsink connector
 DLQ="demo.dlq"
 echo "Creating jdbcsink connector topic \"$DLQ\""
-kafka-topics --bootstrap-server $BROKER_URL --create --topic $DLQ --partitions 1
+kafka-topics --bootstrap-server "$BROKER_URL" --create --topic $DLQ --partitions 1
 echo "Created jdbcsink connector topic \"$DLQ\""
 
 GROUP=$CONNECTOR_NAME
 
 # verify conenct server is running and accepting requests
 printf 'Waiting until connect server REST API is ready to accept requests'
-until $(curl --output /dev/null --silent --head --fail $KAFKA_CONNECT_URL/connectors); do
+until curl --output /dev/null --silent --head --fail "$KAFKA_CONNECT_URL/connectors"; do
   printf '.'
   sleep 3
 done
@@ -68,11 +68,11 @@ EOF
 
 echo ""
 echo "Creating jdbcsink connector"
-curl --header "Content-Type: application/json" -X POST --data "$POST_DATA" $KAFKA_CONNECT_URL/connectors
+curl --header "Content-Type: application/json" -X POST --data "$POST_DATA" "$KAFKA_CONNECT_URL/connectors"
 echo ""
 echo "Created jdbcsink connector"
 
 sleep 10
 echo ""
 echo "Checking status of jdbcsink connector"
-curl $KAFKA_CONNECT_URL/connectors/$CONNECTOR_NAME/status
+curl "$KAFKA_CONNECT_URL/connectors/$CONNECTOR_NAME/status"

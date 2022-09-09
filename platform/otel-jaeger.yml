@@ -128,13 +128,12 @@ services:
       timeout: 10s
       retries: 20
 
-################## CLIENT ##################
+################## KAFKA CONNECT ##################
 
-  client:
-    image: kafka-client:0.0.1
-    build: ./client
-    hostname: client.${DOMAIN}
-    container_name: client
+  connect1:
+    image: confluentinc/cp-server-connect:${CONFLUENT_VERSION}
+    hostname: connect1
+    container_name: connect1
     links:
       - schema1
     depends_on:
@@ -144,6 +143,91 @@ services:
       - bash
       - -c
       - |
+        echo "Installing Connectors"
+        confluent-hub install --no-prompt confluentinc/kafka-connect-jdbc:10.2.6
+        curl -k -L https://jdbc.postgresql.org/download/postgresql-42.3.1.jar -o /usr/share/java/postgresql-42.3.1.jar
+        curl -k -L https://github.com/open-telemetry/opentelemetry-java-instrumentation/releases/download/v1.17.0/opentelemetry-javaagent.jar -o /usr/share/java/opentelemetry-javaagent.jar
+        #
+        echo "Starting Kafka Connect server"
+        /etc/confluent/docker/run &
+        sleep infinity
+    ports:
+      - 8083:8083
+    environment:
+      CONNECT_BOOTSTRAP_SERVERS: 'PLAINTEXT://kafka1.${DOMAIN}:29092'
+      CONNECT_SECURITY_PROTOCOL: 'PLAINTEXT'
+      CONNECT_REST_ADVERTISED_HOST_NAME: connect1
+      CONNECT_REST_PORT: 8083
+      CONNECT_GROUP_ID: docker-connect-cluster
+      CONNECT_CONFIG_STORAGE_TOPIC: docker-connect-configs
+      CONNECT_CONFIG_STORAGE_REPLICATION_FACTOR: 1
+      CONNECT_OFFSET_FLUSH_INTERVAL_MS: 10000
+      CONNECT_OFFSET_STORAGE_TOPIC: docker-connect-offsets
+      CONNECT_OFFSET_STORAGE_REPLICATION_FACTOR: 1
+      CONNECT_STATUS_STORAGE_TOPIC: docker-connect-status
+      CONNECT_STATUS_STORAGE_REPLICATION_FACTOR: 1
+      CONNECT_KEY_CONVERTER: io.confluent.connect.avro.AvroConverter
+      CONNECT_KEY_CONVERTER_SCHEMA_REGISTRY_URL: http://schema1.${DOMAIN}:8081
+      CONNECT_KEY_SUBJECT_NAME_STRATEGY: io.confluent.kafka.serializers.subject.RecordNameStrategy
+      CONNECT_VALUE_CONVERTER: io.confluent.connect.avro.AvroConverter
+      CONNECT_VALUE_CONVERTER_SCHEMA_REGISTRY_URL: http://schema1.${DOMAIN}:8081
+      CONNECT_VALUE_SUBJECT_NAME_STRATEGY: io.confluent.kafka.serializers.subject.RecordNameStrategy
+      CONNECT_INTERNAL_KEY_CONVERTER: org.apache.kafka.connect.json.JsonConverter
+      CONNECT_INTERNAL_VALUE_CONVERTER: org.apache.kafka.connect.json.JsonConverter
+      CONNECT_ZOOKEEPER_CONNECT: zoo1.${DOMAIN}:2181
+      CONNECT_CONNECTOR_CLIENT_CONFIG_OVERRIDE_POLICY: All
+      CONNECT_LISTENERS: http://0.0.0.0:8083
+      CONNECT_REST_ADVERTISED_LISTENER: http
+      # Set in seconds, this was changed to allow for detection of new topics and partitions quicker by the
+      # JDBC sink connector (default is five minutes). Comment out this setting for overall better consumer
+      # performance.
+      CONNECT_METADATA_MAX_AGE_MS: 60
+      CONNECT_PLUGIN_PATH: /usr/share/java,/usr/share/confluent-hub-components
+      CONNECT_LOG4J_LOGGERS: org.apache.zookeeper=ERROR,org.I0Itec.zkclient=ERROR,org.reflections=ERROR,org.apache.kafka=ERROR,org.apache.hadoop=ERROR,org.apache.parquet=ERROR,io.confluent=ERROR,org.apache.kafka.connect.runtime=ERROR
+      #KAFKA_JMX_OPTS: "-Dcom.sun.management.jmxremote -Dcom.sun.management.jmxremote.authenticate=false -Dcom.sun.management.jmxremote.ssl=false -Dcom.sun.management.jmxremote.port=9010 -Dcom.sun.management.jmxremote.rmi.port=9010 -Djava.rmi.server.hostname=10.0.0.193"
+      OTEL_SERVICE_NAME: "connect1"
+      OTEL_TRACES_EXPORTER: "otlp"
+      OTEL_EXPORTER_OTLP_ENDPOINT: "http://collector.${DOMAIN}:4317"
+      OTEL_METRICS_EXPORTER: "none"
+      OTEL_TRACES_SAMPLER: "traceidratio"
+      OTEL_TRACES_SAMPLER_ARG: "1.0"
+      KAFKA_OPTS: >-
+        -javaagent:/usr/share/java/opentelemetry-javaagent.jar
+      KAFKA_JVM_PERFORMANCE_OPTS: >-
+        -server -XX:+UseG1GC -XX:GCTimeRatio=1
+        -XX:MinHeapFreeRatio=10 -XX:MaxHeapFreeRatio=20
+        -XX:MaxGCPauseMillis=10000 -XX:InitiatingHeapOccupancyPercent=35 -XX:+ExplicitGCInvokesConcurrent
+        -XX:MaxInlineLevel=15 -Djava.awt.headless=true
+      KAFKA_HEAP_OPTS: "-Xms${CONNECT_HEAP} -Xmx${CONNECT_HEAP}"
+    volumes:
+      - ./schemas:/schemas:ro
+    networks:
+      - kafka-network
+    healthcheck:
+      test: ["CMD", "bash", "-c", "curl http://connect1:8083/connectors"]
+      start_period: 30s
+      interval: 10s
+      timeout: 10s
+      retries: 10
+
+################## CLIENT ##################
+
+  client:
+    image: kafka-client:0.0.1
+    build: ./client
+    hostname: client.${DOMAIN}
+    container_name: client
+    links:
+      - kafka1
+    depends_on:
+      kafka1:
+        condition: service_healthy
+    command:
+      - bash
+      - -c
+      - |
+        cd /scripts/connect
+        ./create-jdbc-sink.sh jdbcsink
         touch /tmp/initialized
         tail -f /dev/null
     volumes:
@@ -156,6 +240,43 @@ services:
       interval: 15s
       timeout: 15s
       retries: 30
+
+################## TELEMETRY ##################
+
+  # https://www.jaegertracing.io/docs/1.37/getting-started/
+  jaeger:
+    image: jaegertracing/all-in-one:latest
+    container_name: jaeger
+    ports:
+      - "14250:14250"
+      - "16686:16686"
+    networks:
+      - kafka-network
+
+  collector:
+    image: otel/opentelemetry-collector:latest
+    hostname: collector
+    container_name: collector
+    links:
+      - jaeger
+      - kafka1
+    depends_on:
+      jaeger:
+        condition: service_started
+      kafka1:
+        condition: service_healthy
+    command: ["--config=/etc/otel-collector-config.yml", ""]
+    ports:
+      - "1888:1888"   # pprof extension
+      - "9010:9010"   # Prometheus metrics exposed by the collector
+      - "9011:9011"   # Prometheus exporter metrics
+      - "13133:13133" # health_check extension
+      - "4317:4317"   # OTLP gRPC receiver
+      - "55679:55679" # zpages extension
+    volumes:
+      - ./otel/otel-collector-jaeger.yml:/etc/otel-collector-config.yml
+    networks:
+      - kafka-network
 
 ################## APPS ##################
 
@@ -173,26 +294,31 @@ services:
       - "9100:9100"
     environment:
       CLIENT_ID: producer1
-      BOOTSTRAP_URL: lb.${DOMAIN}:29092
+      BOOTSTRAP_URL: kafka1.${DOMAIN}:29092
       SECURITY_PROTOCOL: PLAINTEXT
       SCHEMA_REGISTRY_URL: http://schema1.${DOMAIN}:8081
       TOPIC: demo.customer
       SCHEMA: customer
       PARTITIONS: 5
-      MESSAGES: 10000
+      MESSAGES: 100000
       BATCH_SIZE: 1
-      FREQUENCY_MS: 1000
+      FREQUENCY_MS: 100
       PORT: 9000
       OTEL_SERVICE_NAME: "producer1"
-      OTEL_RESOURCE_ATTRIBUTES: "service.name=producer1,service.version=0.0.1,mytag=myvalue"
-      OTEL_EXPORTER_OTLP_TRACES_ENDPOINT: ${DYNATRACE_TRACES_URL}
-      OTEL_EXPORTER_OTLP_TRACES_PROTOCOL: "http/protobuf"
-      OTEL_EXPORTER_OTLP_TRACES_HEADERS: "Authorization=Api-Token\ ${DYNATRACE_API_TOKEN}"
+      OTEL_TRACES_EXPORTER: "otlp"
+      OTEL_EXPORTER_OTLP_ENDPOINT: "http://collector.${DOMAIN}:4317"
       OTEL_METRICS_EXPORTER: "none"
       OTEL_TRACES_SAMPLER: "traceidratio"
-      OTEL_TRACES_SAMPLER_ARG: "0.5"
+      OTEL_TRACES_SAMPLER_ARG: "1.0"
       JAVA_OPTS: >-
         -Xms1G -Xmx1G
+        -Dcom.sun.management.jmxremote 
+        -Dcom.sun.management.jmxremote.port=9100 
+        -Dcom.sun.management.jmxremote.rmi.port=9100
+        -Dcom.sun.management.jmxremote.authenticate=false 
+        -Dcom.sun.management.jmxremote.ssl=false
+        -Dcom.sun.management.jmxremote.local.only=false
+        -Djava.rmi.server.hostname=0.0.0.0
         -javaagent:/agents/opentelemetry-javaagent.jar
     networks:
       - kafka-network
@@ -229,15 +355,20 @@ services:
       STATE_DIR: /data
       PORT: 9001
       OTEL_SERVICE_NAME: "kstream1"
-      OTEL_RESOURCE_ATTRIBUTES: "service.name=kstream1,service.version=0.0.1,mytag=myvalue"
-      OTEL_EXPORTER_OTLP_TRACES_ENDPOINT: ${DYNATRACE_TRACES_URL}
-      OTEL_EXPORTER_OTLP_TRACES_PROTOCOL: "http/protobuf"
-      OTEL_EXPORTER_OTLP_TRACES_HEADERS: "Authorization=Api-Token\ ${DYNATRACE_API_TOKEN}"
+      OTEL_TRACES_EXPORTER: "otlp"
+      OTEL_EXPORTER_OTLP_ENDPOINT: "http://collector.${DOMAIN}:4317"
       OTEL_METRICS_EXPORTER: "none"
       OTEL_TRACES_SAMPLER: "traceidratio"
-      OTEL_TRACES_SAMPLER_ARG: "0.5"
+      OTEL_TRACES_SAMPLER_ARG: "1.0"
       JAVA_OPTS: >-
         -Xms1G -Xmx1G
+        -Dcom.sun.management.jmxremote
+        -Dcom.sun.management.jmxremote.port=9101
+        -Dcom.sun.management.jmxremote.rmi.port=9101
+        -Dcom.sun.management.jmxremote.authenticate=false
+        -Dcom.sun.management.jmxremote.ssl=false
+        -Dcom.sun.management.jmxremote.local.only=false
+        -Djava.rmi.server.hostname=0.0.0.0
         -javaagent:/agents/opentelemetry-javaagent.jar
     volumes:
       - ./volumes/kstreams-1:/data
@@ -272,15 +403,20 @@ services:
       POLL_TIMEOUT_SECS: 30
       PORT: 9002
       OTEL_SERVICE_NAME: "consumer1"
-      OTEL_RESOURCE_ATTRIBUTES: "service.name=consumer1,service.version=0.0.1,mytag=myvalue"
-      OTEL_EXPORTER_OTLP_TRACES_ENDPOINT: ${DYNATRACE_TRACES_URL}
-      OTEL_EXPORTER_OTLP_TRACES_PROTOCOL: "http/protobuf"
-      OTEL_EXPORTER_OTLP_TRACES_HEADERS: "Authorization=Api-Token\ ${DYNATRACE_API_TOKEN}"
+      OTEL_TRACES_EXPORTER: "otlp"
+      OTEL_EXPORTER_OTLP_ENDPOINT: "http://collector.${DOMAIN}:4317"
       OTEL_METRICS_EXPORTER: "none"
       OTEL_TRACES_SAMPLER: "traceidratio"
-      OTEL_TRACES_SAMPLER_ARG: "0.5"
+      OTEL_TRACES_SAMPLER_ARG: "1.0"
       JAVA_OPTS: >-
         -Xms1G -Xmx1G
+        -Dcom.sun.management.jmxremote
+        -Dcom.sun.management.jmxremote.port=9102
+        -Dcom.sun.management.jmxremote.rmi.port=9102
+        -Dcom.sun.management.jmxremote.authenticate=false
+        -Dcom.sun.management.jmxremote.ssl=false
+        -Dcom.sun.management.jmxremote.local.only=false
+        -Djava.rmi.server.hostname=0.0.0.0
         -javaagent:/agents/opentelemetry-javaagent.jar
     networks:
       - kafka-network
@@ -289,6 +425,25 @@ services:
       interval: 10s
       timeout: 10s
       retries: 20
+
+################## POSTGRES ##################
+
+  postgres:
+    image: postgres
+    hostname: postgres
+    container_name: postgres
+    ports:
+      - 5432:5432
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgrespass
+      POSTGRES_DB: kafka
+      PGDATA: /data/postgres
+    volumes:
+      # parallels on macos does not support hard links, that's why we have to do this
+      - postgres-data:/data/postgres
+    networks:
+      - kafka-network
 
 networks:
   kafka-network:

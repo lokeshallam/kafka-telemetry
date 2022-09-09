@@ -1,0 +1,40 @@
+receivers:
+  otlp:
+    protocols:
+      grpc:
+
+exporters:
+  jaeger:
+    endpoint: jaeger.mycompany.com:14250
+    tls:
+      insecure: true
+
+processors:
+  memory_limiter:
+    check_interval: 1s
+    # maximum amount of memory (MB) targeted to be allocated by the process heap
+    limit_mib: 2000
+    # maximum spike expected between the measurements of memory usage (soft limit = limit_mib - spike_limit_mib)
+    spike_limit_mib: 800
+  batch:
+    # number of spans/metrics/logs after which a batch will be sent regardless of the timeout
+    send_batch_size: 5000
+    # time duration after which a batch will be sent regardless of batch size
+    timeout: 5s
+    # upper limit of the batch sent to exporter
+    send_batch_max_size: 0
+
+extensions:
+  health_check:
+  pprof:
+    endpoint: :1888
+  zpages:
+    endpoint: :55679
+
+service:
+  extensions: [pprof, zpages, health_check]
+  pipelines:
+    traces:
+      receivers: [otlp]
+      processors: [batch,memory_limiter]
+      exporters: [jaeger]

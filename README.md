@@ -166,6 +166,81 @@ Once you are finished with the Kafka Jaeger tracing demo, go in the `platform` f
 This will stop all the running docker containers for this project and cleanup the data volumes used by each in the 
 folder `platform/volumes`.
 
+### OTEL Jaeger Setup
+
+To start the Kafka OTEL Collector Jaeger tracing demo, go in the `platform` folder and run this command:
+```
+./setup.sh otel-jaeger
+```
+In addition to launching Zookeeper, Kafka brokers, Confluent Schema Registry, Kafka Connect workers, and the
+`java-kafka-consumer`, `java-kafka-producer`, and `java-kafka-streams` applications, this demo will also launch
+[Jaeger all-in-one](https://hub.docker.com/r/jaegertracing/all-in-one/) and the [OTEL Collector](https://github.com/open-telemetry/opentelemetry-collector) 
+for metrics collection. The Kafka applications are using the [OpenTelemetry Java agent](https://github.com/open-telemetry/opentelemetry-java-instrumentation)
+to send trace data to the OTEL Collector which forwards the data to Jaeger. This agent uses the [Java Instrumentation API](https://www.baeldung.com/java-instrumentation)
+to modify the bytecode of compiled Java applications to insert bytecode that sends trace data to an observability tool
+based on the agent's configuration. The configuration can be seen in the file `platform/jaeger.yml` in the services
+`producer1`, `kstream1` and `consumer1`. The advantage of using the OTEL Collector is that it can collect trace data sent
+from several clients and forward it to the destination telemetry system in batches. This is especially advantageous when
+the end telemetry system is in the cloud. The OTEL Collector should be deployed near the clients so network latency is 
+minimal.
+
+The OTEL Collector configuration is defined in the file `platform/otel/otel-collector-jaeger.yml`. The `receivers` 
+section defines how the OTEL Collector will receive data from the clients.
+```
+receivers:
+  otlp:
+    protocols:
+      grpc:
+```
+The `exporters` section defines the endpoints where the OTEL Collector is sending data. In this case, one endpoint is
+defined for Jaeger.
+```
+exporters:
+  jaeger:
+    endpoint: jaeger.mycompany.com:14250
+      tls:
+        insecure: true
+```
+The `processors` section is used to process the incoming data before it is exported to the endpoints (like Jaeger). It 
+is here where the batching configuration is set and also the heap settings for processing incoming data.
+```
+processors:
+  memory_limiter:
+    check_interval: 1s
+    # maximum amount of memory (MB) targeted to be allocated by the process heap
+    limit_mib: 2000
+    # maximum spike expected between the measurements of memory usage (soft limit = limit_mib - spike_limit_mib)
+    spike_limit_mib: 800
+  batch:
+    # number of spans/metrics/logs after which a batch will be sent regardless of the timeout
+    send_batch_size: 5000
+    # time duration after which a batch will be sent regardless of batch size
+    timeout: 5s
+    # upper limit of the batch sent to exporter
+    send_batch_max_size: 0
+```
+Finally, the `service` section ties the `receivers`, `processors`, and `exporters` together. So the configuration below
+sets a OTLP `receiver` in the OTEL Collector that will receive data from clients, process it using the `batch` and 
+`memory_limiter` settings and then export to Jaeger.
+```
+service:
+  extensions: [pprof, zpages, health_check]
+  pipelines:
+    traces:
+      receivers: [otlp]
+      processors: [batch,memory_limiter]
+      exporters: [jaeger]
+```
+
+### OTEL Jaeger Teardown
+
+Once you are finished with the Kafka OTEL Collector Jaeger tracing demo, go in the `platform` folder and run this command:
+```
+./teardown.sh otel-jaeger
+```
+This will stop all the running docker containers for this project and cleanup the data volumes used by each in the
+folder `platform/volumes`.
+
 ### Dynatrace Setup
 
 Dynatrace has a [15-day free trial](https://www.dynatrace.com/trial) for its SaaS offering that is used for this demo. 
@@ -252,6 +327,93 @@ for example).
 Once you are finished with the Kafka Dynatrace tracing demo, go in the `platform` folder and run this command:
 ```
 ./teardown.sh dynatrace
+```
+This will stop all the running docker containers for this project and cleanup the data volumes used by each in the
+folder `platform/volumes`.
+
+### OTEL Dynatrace Setup
+
+To start the Kafka OTEL Collector Dynatrace tracing demo, go in the `platform` folder and run this command:
+```
+./setup.sh otel-dynatrace
+```
+In addition to launching Zookeeper, Kafka brokers, Confluent Schema Registry, Kafka Connect workers, and the
+`java-kafka-consumer`, `java-kafka-producer`, and `java-kafka-streams` applications, this demo will also launch
+the [OTEL Collector](https://github.com/open-telemetry/opentelemetry-collector)
+for metrics collection. The Kafka applications are using the [OpenTelemetry Java agent](https://github.com/open-telemetry/opentelemetry-java-instrumentation)
+to send trace data to the OTEL Collector which forwards the data to Dynatrace. This agent uses the [Java Instrumentation API](https://www.baeldung.com/java-instrumentation)
+to modify the bytecode of compiled Java applications to insert bytecode that sends trace data to an observability tool
+based on the agent's configuration. The configuration can be seen in the file `platform/jaeger.yml` in the services
+`producer1`, `kstream1` and `consumer1`. The advantage of using the OTEL Collector is that it can collect trace data sent
+from several clients and forward it to the destination telemetry system in batches. This is especially advantageous when
+the end telemetry system is in the cloud. The OTEL Collector should be deployed near the clients so network latency is
+minimal.
+
+The OTEL Collector configuration is defined in the file `platform/otel/otel-collector-dynatrace.yml`. The `receivers`
+section defines how the OTEL Collector will receive data from the clients.
+```
+receivers:
+  otlp:
+    protocols:
+      grpc:
+      http:
+```
+The `exporters` section defines the endpoints where the OTEL Collector is sending data. In this case, one endpoint is
+defined for Dynatrace (cloud).
+```
+exporters:
+  otlphttp:
+    endpoint: "https://<environment>.live.dynatrace.com/api/v2/otlp"
+    headers:
+      Authorization: "Api-Token <token>"
+```
+In the `endpoint` value you will need to replace `<environment>` with the environment for
+your Dynatrace instance. You will also need to create an API token and replace `<token>` with your token value in the
+`Authorization` header value. To learn how to create an API token in Dynatrace, see the [Dynatrace Setup](#dynatrace-setup) 
+section of this README. Here is an example:
+```
+exporters:
+  otlphttp:
+    endpoint: "https://abc12345.live.dynatrace.com/api/v2/otlp"
+    headers:
+      Authorization: "Api-Token dt9c99.1133MHGYTU1DZYYR1BRYBZXA.GGEXZ31DDYGUIQEDRMNDRWR1W7J3J44TRWXUBJ5QP4Y6OLHK4A3CMSHTAQRTL199"
+```
+The `processors` section is used to process the incoming data before it is exported to the endpoints (like Dynatrace). It
+is here where the batching configuration is set and also the heap settings for processing incoming data.
+```
+processors:
+  memory_limiter:
+    check_interval: 1s
+    # maximum amount of memory (MB) targeted to be allocated by the process heap
+    limit_mib: 2000
+    # maximum spike expected between the measurements of memory usage (soft limit = limit_mib - spike_limit_mib)
+    spike_limit_mib: 800
+  batch:
+    # number of spans/metrics/logs after which a batch will be sent regardless of the timeout
+    send_batch_size: 5000
+    # time duration after which a batch will be sent regardless of batch size
+    timeout: 5s
+    # upper limit of the batch sent to exporter
+    send_batch_max_size: 0
+```
+Finally, the `service` section ties the `receivers`, `processors`, and `exporters` together. So the configuration below
+sets a OTLP `receiver` in the OTEL Collector that will receive data from clients, process it using the `batch` and
+`memory_limiter` settings and then export to Dynatrace.
+```
+service:
+  extensions: [pprof, zpages, health_check]
+  pipelines:
+    traces:
+      receivers: [otlp]
+      processors: [batch,memory_limiter]
+      exporters: [otlphttp]
+```
+
+### OTEL Dynatrace Teardown
+
+Once you are finished with the Kafka OTEL Collector Dynatrace tracing demo, go in the `platform` folder and run this command:
+```
+./teardown.sh otel-dynatrace
 ```
 This will stop all the running docker containers for this project and cleanup the data volumes used by each in the
 folder `platform/volumes`.

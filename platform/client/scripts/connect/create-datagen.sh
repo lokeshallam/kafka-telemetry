@@ -15,7 +15,7 @@ PARTITIONS=$3
 
 # create input topic for datagen connector
 echo "Creating datagen connector topic \"$TOPIC\""
-kafka-topics --bootstrap-server $BROKER_URL --create --topic ${TOPIC} --partitions ${PARTITIONS} --replication-factor 3
+kafka-topics --bootstrap-server $BROKER_URL --create --topic $TOPIC --partitions $PARTITIONS --replication-factor 3
 echo "Created datagen connector topic \"$TOPIC\""
 
 # verify conenct server is running and accepting requests
