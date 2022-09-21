@@ -1,7 +1,7 @@
 # Spring Boot properties
 server.port: ${PORT:8080}
 
-app:
+application:
   topic: ${TOPIC}
   offset.days: ${OFFSET_DAYS:0}
   poll.timeout.secs: ${POLL_TIMEOUT_SECS:10}
@@ -27,4 +27,12 @@ consumer:
   value.deserializer: io.confluent.kafka.serializers.KafkaAvroDeserializer
   bootstrap.servers: ${BOOTSTRAP_URL}
   security.protocol: ${SECURITY_PROTOCOL:PLAINTEXT}
+  sasl.mechanism: ${SASL_MECHANISM:PLAIN}
+  sasl.jaas.config: >-
+    org.apache.kafka.common.security.plain.PlainLoginModule required
+    username="${SASL_USERNAME:}"
+    password="${SASL_PASSWORD:}";
   schema.registry.url: ${SCHEMA_REGISTRY_URL}
+  schema.registry.auth: ${SCHEMA_REGISTRY_AUTH:false}
+  basic.auth.credentials.source: USER_INFO
+  basic.auth.user.info: ${SCHEMA_REGISTRY_USERNAME}:${SCHEMA_REGISTRY_PASSWORD}

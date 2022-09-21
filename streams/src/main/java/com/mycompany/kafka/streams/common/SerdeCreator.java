@@ -48,8 +48,6 @@ public class SerdeCreator {
                     kafkaProps.get(AbstractKafkaSchemaSerDeConfig.USER_INFO_CONFIG));
         }
         serdeConfig.put(KafkaAvroDeserializerConfig.AUTO_REGISTER_SCHEMAS, kafkaProps.get("auto.register.schemas"));
-        serdeConfig.put(KafkaAvroDeserializerConfig.USE_LATEST_VERSION, kafkaProps.get("use.latest.version"));
-        serdeConfig.put(KafkaAvroDeserializerConfig.LATEST_COMPATIBILITY_STRICT, kafkaProps.get("latest.compatibility.strict"));
         return serdeConfig;
     }
 }

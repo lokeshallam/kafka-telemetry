@@ -13,11 +13,19 @@ application:
 kafka:
   producer:
     application.id: ${APP_ID}-errors
-    bootstrap.servers: ${BOOTSTRAP_URL}
-    security.protocol:  ${SECURITY_PROTOCOL:PLAINTEXT}
     key.serializer: org.apache.kafka.common.serialization.LongSerializer
     value.serializer: io.confluent.kafka.serializers.KafkaAvroSerializer
+    bootstrap.servers: ${BOOTSTRAP_URL}
+    security.protocol:  ${SECURITY_PROTOCOL:PLAINTEXT}
+    sasl.mechanism: ${SASL_MECHANISM:PLAIN}
+    sasl.jaas.config: >-
+      org.apache.kafka.common.security.plain.PlainLoginModule required
+      username="${SASL_USERNAME:}"
+      password="${SASL_PASSWORD:}";
     schema.registry.url: ${SCHEMA_REGISTRY_URL}
+    schema.registry.auth: ${SCHEMA_REGISTRY_AUTH:false}
+    basic.auth.credentials.source: USER_INFO
+    basic.auth.user.info: ${SCHEMA_REGISTRY_USERNAME}:${SCHEMA_REGISTRY_PASSWORD}
   streams:
     application.id: ${APP_ID}
     group.id: ${GROUP_ID}
@@ -26,6 +34,11 @@ kafka:
     # broker connection configuration
     bootstrap.servers: ${BOOTSTRAP_URL}
     security.protocol:  ${SECURITY_PROTOCOL:PLAINTEXT}
+    sasl.mechanism: ${SASL_MECHANISM:PLAIN}
+    sasl.jaas.config: >-
+      org.apache.kafka.common.security.plain.PlainLoginModule required
+      username="${SASL_USERNAME:}"
+      password="${SASL_PASSWORD:}";
     default.key.serde: io.confluent.kafka.streams.serdes.avro.GenericAvroSerde
     default.value.serde: io.confluent.kafka.streams.serdes.avro.GenericAvroSerde
     default.timestamp.extractor: org.apache.kafka.streams.processor.WallclockTimestampExtractor
@@ -51,11 +64,11 @@ kafka:
     min.insync.replicas: 0
     # schema registry configuration
     schema.registry.url: ${SCHEMA_REGISTRY_URL}
-    schema.registry.auth: false
+    schema.registry.auth: ${SCHEMA_REGISTRY_AUTH:false}
     schema.cache.capacity: 2000
+    basic.auth.credentials.source: USER_INFO
+    basic.auth.user.info: ${SCHEMA_REGISTRY_USERNAME}:${SCHEMA_REGISTRY_PASSWORD}
     #key.subject.name.strategy: io.confluent.kafka.serializers.subject.RecordNameStrategy
     #value.subject.name.strategy: io.confluent.kafka.serializers.subject.RecordNameStrategy
     topology.optimization: all
     auto.register.schemas: true
-    use.latest.version: true
-    latest.compatibility.strict: false

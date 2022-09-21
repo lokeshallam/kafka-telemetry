@@ -26,7 +26,7 @@ public class Application implements CommandLineRunner {
     @Autowired
     private AdminClient adminClient;
     @Autowired
-    private Properties appProperties;
+    private Properties applicationProperties;
 
     public static void main(String[] args) {
         SpringApplication.run(Application.class, args).close();
@@ -35,11 +35,11 @@ public class Application implements CommandLineRunner {
     @Override
     public void run(String... args) throws Exception {
 
-        String topicName = appProperties.getProperty(TOPIC);
-        int partitions = Integer.parseInt(appProperties.getProperty(PARTITIONS));
+        String topicName = applicationProperties.getProperty(TOPIC);
+        int partitions = Integer.parseInt(applicationProperties.getProperty(PARTITIONS));
         createTopic(topicName, partitions);
 
-        GenericRecordProducer genericRecordProducer = new GenericRecordProducer(kafkaProducer, appProperties);
+        GenericRecordProducer genericRecordProducer = new GenericRecordProducer(kafkaProducer, applicationProperties);
         genericRecordProducer.start();
     }
 
@@ -55,5 +55,4 @@ public class Application implements CommandLineRunner {
             }
         }
     }
-
 }

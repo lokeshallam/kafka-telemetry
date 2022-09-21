@@ -5,6 +5,7 @@ import com.mycompany.kafka.streams.common.SerdeCreator;
 
 import io.confluent.kafka.schemaregistry.client.CachedSchemaRegistryClient;
 import io.confluent.kafka.schemaregistry.client.SchemaRegistryClient;
+import io.confluent.kafka.serializers.AbstractKafkaSchemaSerDeConfig;
 import org.apache.kafka.clients.producer.KafkaProducer;
 import org.apache.kafka.streams.Topology;
 import org.springframework.boot.context.properties.ConfigurationProperties;
@@ -21,6 +22,7 @@ public class Config {
 
     private static final String SCHEMA_REGISTRY_URL = "schema.registry.url";
     private static final String SCHEMA_CACHE_CAPACITY = "schema.cache.capacity";
+    private static final String SCHEMA_REGISTRY_AUTH = "schema.registry.auth";
     private static final String STREAM_TYPE = "stream.type";
     private static final String STATELESS = "stateless";
 
@@ -45,7 +47,7 @@ public class Config {
     @Bean
     public SchemaRegistryClient schemaRegistryClient() {
 
-        Properties kafkaProperties = streamsProperties();
+        Properties kafkaProperties = prepare(streamsProperties());
 
         // pull out schema registry properties from kafka properties to pass to schema registry client
         Map<String, Object> schemaProperties = new HashMap<>();
@@ -61,17 +63,19 @@ public class Config {
 
     @Bean
     public SerdeCreator serdeCreator() {
-        return new SerdeCreator(streamsProperties(), schemaRegistryClient());
+        return new SerdeCreator(prepare(streamsProperties()), schemaRegistryClient());
     }
 
     @Bean
     public StatelessTopologyBuilder statelessTopologyBuilder() {
-        return new StatelessTopologyBuilder(applicationProperties(), serdeCreator(), new KafkaProducer<>(producerProperties()), schemaRegistryClient());
+        return new StatelessTopologyBuilder(applicationProperties(), serdeCreator(), new KafkaProducer<>(
+                prepare(producerProperties())), schemaRegistryClient());
     }
 
     @Bean
     public StatefulTopologyBuilder statefulTopologyBuilder() {
-        return new StatefulTopologyBuilder(applicationProperties(), serdeCreator(), new KafkaProducer<>(producerProperties()), schemaRegistryClient());
+        return new StatefulTopologyBuilder(applicationProperties(), serdeCreator(), new KafkaProducer<>(
+                prepare(producerProperties())), schemaRegistryClient());
     }
 
     @Bean
@@ -84,6 +88,15 @@ public class Config {
         } else {
             topology = statefulTopologyBuilder().build(applicationProperties);
         }
-        return new StreamsLifecycle(topology, applicationProperties, streamsProperties(), applicationContext);
+        return new StreamsLifecycle(topology, applicationProperties, prepare(streamsProperties()), applicationContext);
+    }
+
+    private Properties prepare(Properties properties) {
+        boolean auth = Boolean.parseBoolean(properties.getProperty(SCHEMA_REGISTRY_AUTH));
+        if (!auth) {
+            properties.remove(AbstractKafkaSchemaSerDeConfig.BASIC_AUTH_CREDENTIALS_SOURCE);
+            properties.remove(AbstractKafkaSchemaSerDeConfig.USER_INFO_CONFIG);
+        }
+        return properties;
     }
 }

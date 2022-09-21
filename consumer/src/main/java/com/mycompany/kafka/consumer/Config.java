@@ -1,5 +1,6 @@
 package com.mycompany.kafka.consumer;
 
+import io.confluent.kafka.serializers.AbstractKafkaSchemaSerDeConfig;
 import org.apache.avro.generic.GenericRecord;
 import org.apache.kafka.clients.consumer.KafkaConsumer;
 import org.springframework.boot.context.properties.ConfigurationProperties;
@@ -11,6 +12,8 @@ import java.util.Properties;
 @Configuration
 public class Config {
 
+    private static final String SCHEMA_REGISTRY_AUTH = "schema.registry.auth";
+
     @Bean
     @ConfigurationProperties(prefix = "consumer")
     public Properties kafkaProperties() {
@@ -18,13 +21,25 @@ public class Config {
     }
 
     @Bean
-    @ConfigurationProperties(prefix = "app")
-    public Properties appProperties() {
+    @ConfigurationProperties(prefix = "application")
+    public Properties applicationProperties() {
         return new Properties();
     }
 
     @Bean
     public KafkaConsumer<Long, GenericRecord> kafkaConsumer() {
-        return new KafkaConsumer<>(kafkaProperties());
+        return new KafkaConsumer<>(prepare(kafkaProperties()));
+    }
+
+    private Properties prepare(Properties properties) {
+
+        // if schema registry auth is not enabled then remove any properties having to do with it
+        boolean auth = Boolean.parseBoolean(properties.getProperty(SCHEMA_REGISTRY_AUTH));
+        if (!auth) {
+            properties.remove(SCHEMA_REGISTRY_AUTH);
+            properties.remove(AbstractKafkaSchemaSerDeConfig.BASIC_AUTH_CREDENTIALS_SOURCE);
+            properties.remove(AbstractKafkaSchemaSerDeConfig.USER_INFO_CONFIG);
+        }
+        return properties;
     }
 }

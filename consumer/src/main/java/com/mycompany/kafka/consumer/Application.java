@@ -15,7 +15,7 @@ public class Application implements CommandLineRunner {
     @Autowired
     private KafkaConsumer<Long, GenericRecord> kafkaConsumer;
     @Autowired
-    private Properties appProperties;
+    private Properties applicationProperties;
 
     public static void main(String[] args) {
         SpringApplication.run(Application.class, args).close();
@@ -23,7 +23,7 @@ public class Application implements CommandLineRunner {
 
     @Override
     public void run(String... args) {
-        Consumer consumer = new Consumer(kafkaConsumer, appProperties);
+        Consumer consumer = new Consumer(kafkaConsumer, applicationProperties);
         consumer.start();
     }
 }
