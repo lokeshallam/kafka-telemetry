@@ -491,30 +491,28 @@ To deploy the `java-kafka-consumer`, `java-kafka-producer`, and `java-kafka-stre
 to Kubernetes instead of docker follow the steps below.
 
 1. Make the following docker images are in your Kubernetes docker image repository:
-* `mycompany.com/java-kafka-consumer:0.0.1`
-* `mycompany.com/java-kafka-producer:0.0.1`
-* `mycompany.com/java-kafka-streams:0.0.1`
-* `otel/opentelemetry-collector:latest`
-2. Create the secret for the credentials used to connect to Confluent Cloud
-* Execute `cd platform/k8s`
-* Execute `./create-secret.sh kp-test kafka-credentials <api-key> <api-secret>` where `<api-key>` and `<api-secret>` are
-the credentials the applications will use to connect to Confluent Cloud
-3. Create the secret for the credentials used to connect to the Confluent Cloud Schema Registry
-* Execute `cd platform/k8s`
-* Execute `./create-secret.sh kp-test schema-credentials <api-key> <api-secret>` where `<api-key>` and `<api-secret>` are
-  the credentials the applications will use to connect to the Confluent Cloud Schema Registry
-4. Create the secret containing the OTEL Collector configuration with the Dynatrace API token
-* Modify the file `platform/otel/otel-collector-dynatrace.yml` to have the endpoint and API token for your Dynatrace instance 
-* Execute `cd platform/k8s`
-* Execute `./create-collector-config.sh kp-test`
-5. Create the deployment and service resources for the OTEL collection and Kafka applications
-* Execute `cd platform/k8s`
-* Execute `kubectl apply -f otel-dynatrace-ccloud.yml`
-* This will create all deployments and services in the `kp-test` namespace in your Kubernetes cluster
+   * `mycompany.com/java-kafka-consumer:0.0.1`
+   * `mycompany.com/java-kafka-producer:0.0.1`
+   * `mycompany.com/java-kafka-streams:0.0.1`
+   * `otel/opentelemetry-collector:latest`
+2. Update the file `platform/k8s/k8s.properties` with the properties for your environment
+   * `namespace` - Kubernetes namespace to deploy to
+   * `ccloud_bootstrap_url` - bootstrap URL for Confluent Cloud
+   * `ccloud_api_key` - API key to connect to Confluent Cloud
+   * `ccloud_api_secret` - API secret to connect to Confluent Cloud
+   * `schema_registry_url` - Schema Registry URL in Confluent Cloud
+   * `schema_registry_api_key` - API key to connect to Schema Registry in Confluent Cloud
+   * `schema_registry_api_secret` - API secret to connect to Schema Registry in Confluent Cloud
+   * `dynatrace_trace_url` - URL to send traces to Dynatrace cloud (should look like `https://<dynatrace-domain>/api/v2/otlp`)
+   * `dynatrace_api_token` - Dynatrace API token used to send traces (must have `Ingest OpenTelemetry traces` permission)
+4. Create the deployment and service resources for the OTEL collection and Kafka applications
+   * Execute `cd platform/k8s`
+   * Execute `./setup.sh`
+   * This will create all deployments and services in the namespace you specified in your Kubernetes cluster
 
 ### OTEL Dynatrace Confluent Cloud Kubernetes Teardown
 
 To teardown the deployment and service resources for the OTEL collection and Kafka applications perform the following 
 operations:
 * Execute `cd platform/k8s`
-* Execute `kubectl delete -f otel-dynatrace-ccloud.yml`
+* Execute `./teardown.sh`

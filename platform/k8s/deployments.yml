@@ -2,7 +2,6 @@ apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: otel-collector
-  namespace: kp-test
   labels:
     app: otel-collector
 spec:
@@ -46,7 +45,6 @@ apiVersion: v1
 kind: Service
 metadata:
   name: otel-collector-service
-  namespace: kp-test
 spec:
   selector:
     app: otel-collector
@@ -60,7 +58,6 @@ apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: java-kafka-producer
-  namespace: kp-test
   labels:
     app: java-kafka-producer
 spec:
@@ -75,14 +72,17 @@ spec:
     spec:
       containers:
       - name: java-kafka-producer
-        image: mycompany.com/java-kafka-producer:0.0.1
+        image: mark-christiansen/java-kafka-producer:0.0.1
         ports:
         - containerPort: 9000
         env:
         - name: CLIENT_ID
           value: "producer1"
         - name: BOOTSTRAP_URL
-          value: "pkc-abc123.us-east-2.aws.confluent.cloud:9092"
+          valueFrom:
+            configMapKeyRef:
+              name: kafka-config
+              key: bootstrap-url
         - name: SECURITY_PROTOCOL
           value: "SASL_SSL"
         - name: TOPIC
@@ -114,7 +114,10 @@ spec:
         - name: SCHEMA_REGISTRY_AUTH
           value: "true"
         - name: SCHEMA_REGISTRY_URL
-          value: "https://psrc-abc123.us-east-2.aws.confluent.cloud"
+          valueFrom:
+            configMapKeyRef:
+              name: kafka-config
+              key: schema-registry-url
         - name: SCHEMA_REGISTRY_USERNAME
           valueFrom:
             secretKeyRef:
@@ -132,7 +135,7 @@ spec:
         - name: OTEL_TRACES_EXPORTER
           value: "otlp"
         - name: OTEL_EXPORTER_OTLP_ENDPOINT
-          value: "http://otel-collector-service.kp-test.svc.cluster.local:4317"
+          value: "http://otel-collector-service:4317"
         - name: OTEL_METRICS_EXPORTER
           value: "none"
         - name: OTEL_TRACES_SAMPLER
@@ -152,7 +155,6 @@ apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: java-kafka-streams
-  namespace: kp-test
   labels:
     app: java-kafka-streans
 spec:
@@ -167,7 +169,7 @@ spec:
     spec:
       containers:
       - name: java-kafka-streams
-        image: mycompany.com/java-kafka-streams:0.0.1
+        image: mark-christiansen/java-kafka-streams:0.0.1
         ports:
         - containerPort: 9000
         env:
@@ -176,7 +178,10 @@ spec:
         - name: GROUP_ID
           value: "kstream1"
         - name: BOOTSTRAP_URL
-          value: "pkc-abc123.us-east-2.aws.confluent.cloud:9092"
+          valueFrom:
+            configMapKeyRef:
+              name: kafka-config
+              key: bootstrap-url
         - name: SECURITY_PROTOCOL
           value: "SASL_SSL"
         - name: INPUT_TOPIC
@@ -208,7 +213,10 @@ spec:
         - name: SCHEMA_REGISTRY_AUTH
           value: "true"
         - name: SCHEMA_REGISTRY_URL
-          value: "https://psrc-abc123.us-east-2.aws.confluent.cloud"
+          valueFrom:
+            configMapKeyRef:
+              name: kafka-config
+              key: schema-registry-url
         - name: SCHEMA_REGISTRY_USERNAME
           valueFrom:
             secretKeyRef:
@@ -226,7 +234,7 @@ spec:
         - name: OTEL_TRACES_EXPORTER
           value: "otlp"
         - name: OTEL_EXPORTER_OTLP_ENDPOINT
-          value: "http://otel-collector-service.kp-test.svc.cluster.local:4317"
+          value: "http://otel-collector-service:4317"
         - name: OTEL_METRICS_EXPORTER
           value: "none"
         - name: OTEL_TRACES_SAMPLER
@@ -246,7 +254,6 @@ apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: java-kafka-consumer
-  namespace: kp-test
   labels:
     app: java-kafka-consumer
 spec:
@@ -261,7 +268,7 @@ spec:
     spec:
       containers:
       - name: java-kafka-consumer
-        image: mycompany.com/java-kafka-consumer:0.0.1
+        image: mark-christiansen/java-kafka-consumer:0.0.1
         ports:
         - containerPort: 9000
         env:
@@ -270,7 +277,10 @@ spec:
         - name: GROUP_ID
           value: "consumer1"
         - name: BOOTSTRAP_URL
-          value: "pkc-abc123.us-east-2.aws.confluent.cloud:9092"
+          valueFrom:
+            configMapKeyRef:
+              name: kafka-config
+              key: bootstrap-url
         - name: SECURITY_PROTOCOL
           value: "SASL_SSL"
         - name: TOPIC
@@ -296,7 +306,10 @@ spec:
         - name: SCHEMA_REGISTRY_AUTH
           value: "true"
         - name: SCHEMA_REGISTRY_URL
-          value: "https://psrc-abc123.us-east-2.aws.confluent.cloud"
+          valueFrom:
+            configMapKeyRef:
+              name: kafka-config
+              key: schema-registry-url
         - name: SCHEMA_REGISTRY_USERNAME
           valueFrom:
             secretKeyRef:
@@ -314,7 +327,7 @@ spec:
         - name: OTEL_TRACES_EXPORTER
           value: "otlp"
         - name: OTEL_EXPORTER_OTLP_ENDPOINT
-          value: "http://otel-collector-service.kp-test.svc.cluster.local:4317"
+          value: "http://otel-collector-service:4317"
         - name: OTEL_METRICS_EXPORTER
           value: "none"
         - name: OTEL_TRACES_SAMPLER
