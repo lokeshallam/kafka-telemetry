@@ -6,9 +6,9 @@ receivers:
 
 exporters:
   otlphttp:
-    endpoint: "https://<environment>>.live.dynatrace.com/api/v2/otlp"
+    endpoint: "https://<environment>.live.dynatrace.com/api/v2/otlp"
     headers:
-      Authorization: "Api-Token <token>"
+      Authorization: "Api-Token <api-token>"
 
 processors:
   memory_limiter:

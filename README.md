@@ -44,7 +44,22 @@ While the Kafka applications are streaming messages, they are configured to send
 This allows you to see the path of the messages through the applications and the time taken for each step even though 
 they are running as different processes. The observability tools available to use in this demo project are [Jaeger](https://www.jaegertracing.io/),
 [Dynatrace](https://www.dynatrace.com/) and [OpenTelemetry](https://opentelemetry.io/) exporting to [Jaeger](https://www.jaegertracing.io/).
-[Splunk](https://www.splunk.com/) was setup as well but is not working at this point. 
+[Splunk](https://www.splunk.com/) was setup as well but is not working at this point.
+
+The following environments are available for setup: 
+
+1. [Jaeger](#jaeger-setup) - Local docker deployment with apps sending trace data directly to Jaeger
+2. [Jaeger OTEL](#otel-jaeger-setup) - Local docker deployment with apps sending trace data to OTEL collector which 
+   forwards to Jaeger
+3. [Dynatrace](#dyntrace-setup) - Local docker deployment with apps sending trace data directly to Dynatrace cloud
+4. [Dynatrace OTEL](#otel-dynatrace-setup) - Local docker deployment with apps sending trace data to OTEL collector which
+   forwards to Dynatrace cloud
+5. [Dynatrace OTEL Confluent Cloud](#otel-dynatrace-confluent-cloud-setup) - Local docker deployment with apps sending 
+   trace data to OTEL collector which forwards to Dynatrace cloud, and apps sending messages to Confluent Cloud instead 
+   of local Kafka
+6. [Dynatrace OTEL Confluent Cloud Kubernetes](#otel-dynatrace-confluent-cloud-kubernetes-setup) - Local Kubernetes 
+   deployment with apps sending trace data to OTEL collector which forwards to Dynatrace cloud, and apps sending 
+   messages to Confluent Cloud instead of local Kafka
 
 ### Jaeger Setup
 
@@ -417,3 +432,89 @@ Once you are finished with the Kafka OTEL Collector Dynatrace tracing demo, go i
 ```
 This will stop all the running docker containers for this project and cleanup the data volumes used by each in the
 folder `platform/volumes`.
+
+### OTEL Dynatrace Confluent Cloud Setup
+
+To start the Kafka OTEL Collector Dynatrace tracing demo, go in the `platform` folder and run this command:
+```
+./setup.sh otel-dynatrace-ccloud
+```
+
+This environment is similar to [OTEL Dynatrace Setup](#otel-dynatrace-setup) except that Kafka isn't running locally in
+docker but the applications are communicating to Confluent Cloud. Therefore, you must specify the following information
+pertaining to the Confluent Cloud cluster you are connecting to in the `.env` file in the base of the `platform` folder:
+```
+BOOTSTRAP_URL=pkc-abc123.us-east-2.aws.confluent.cloud:9092
+KAFKA_USERNAME=ABCDEFG012345678
+KAFKA_PASSWORD=aBcDeFgHiJkLmNoPqRsTuVwXyZ/0123456789/aBcDeFgHiJkLmNoPqRsTuVwXyZ
+SCHEMA_URL=https://psrc-abc123.us-east-2.aws.confluent.cloud
+SCHEMA_USERNAME=ABCDEFG012345678
+SCHEMA_PASSWORD=aBcDeFgHiJkLmNoPqRsTuVwXyZ/0123456789/aBcDeFgHiJkLmNoPqRsTuVwXyZ
+```
+
+The OTEL Collector configuration is defined in the file `platform/otel/otel-collector-dynatrace.yml`. The `receivers`
+section defines how the OTEL Collector will receive data from the clients.
+```
+receivers:
+  otlp:
+    protocols:
+      grpc:
+      http:
+```
+The `exporters` section defines the endpoints where the OTEL Collector is sending data. In this case, one endpoint is
+defined for Dynatrace (cloud).
+```
+exporters:
+  otlphttp:
+    endpoint: "https://<environment>.live.dynatrace.com/api/v2/otlp"
+    headers:
+      Authorization: "Api-Token <token>"
+```
+In the `endpoint` value you will need to replace `<environment>` with the environment for
+your Dynatrace instance. You will also need to create an API token and replace `<token>` with your token value in the
+`Authorization` header value. To learn how to create an API token in Dynatrace, see the [Dynatrace Setup](#dynatrace-setup)
+section of this README.
+
+### OTEL Dynatrace Confluent Cloud Teardown
+
+Once you are finished with the Kafka OTEL Collector Dynatrace Confluent Cloud tracing demo, go in the `platform` folder 
+and run this command:
+```
+./teardown.sh otel-dynatrace-ccloud
+```
+This will stop all the running docker containers for this project and cleanup the data volumes used by each in the
+folder `platform/volumes`.
+
+### OTEL Dynatrace Confluent Cloud Kubernetes Setup
+
+To deploy the `java-kafka-consumer`, `java-kafka-producer`, and `java-kafka-streams` applications and the OTEL collector
+to Kubernetes instead of docker follow the steps below.
+
+1. Make the following docker images are in your Kubernetes docker image repository:
+* `mycompany.com/java-kafka-consumer:0.0.1`
+* `mycompany.com/java-kafka-producer:0.0.1`
+* `mycompany.com/java-kafka-streams:0.0.1`
+* `otel/opentelemetry-collector:latest`
+2. Create the secret for the credentials used to connect to Confluent Cloud
+* Execute `cd platform/k8s`
+* Execute `./create-secret.sh kp-test kafka-credentials <api-key> <api-secret>` where `<api-key>` and `<api-secret>` are
+the credentials the applications will use to connect to Confluent Cloud
+3. Create the secret for the credentials used to connect to the Confluent Cloud Schema Registry
+* Execute `cd platform/k8s`
+* Execute `./create-secret.sh kp-test schema-credentials <api-key> <api-secret>` where `<api-key>` and `<api-secret>` are
+  the credentials the applications will use to connect to the Confluent Cloud Schema Registry
+4. Create the secret containing the OTEL Collector configuration with the Dynatrace API token
+* Modify the file `platform/otel/otel-collector-dynatrace.yml` to have the endpoint and API token for your Dynatrace instance 
+* Execute `cd platform/k8s`
+* Execute `./create-collector-config.sh kp-test`
+5. Create the deployment and service resources for the OTEL collection and Kafka applications
+* Execute `cd platform/k8s`
+* Execute `kubectl apply -f otel-dynatrace-ccloud.yml`
+* This will create all deployments and services in the `kp-test` namespace in your Kubernetes cluster
+
+### OTEL Dynatrace Confluent Cloud Kubernetes Teardown
+
+To teardown the deployment and service resources for the OTEL collection and Kafka applications perform the following 
+operations:
+* Execute `cd platform/k8s`
+* Execute `kubectl delete -f otel-dynatrace-ccloud.yml`

@@ -29,8 +29,7 @@
         <otel.version>1.17.0</otel.version>
         <docker.buildArg.JAR_FILE>target/${project.artifactId}-${project.version}.jar</docker.buildArg.JAR_FILE>
         <docker.buildArg.JAVA_AGENT_1_URL>https://github.com/open-telemetry/opentelemetry-java-instrumentation/releases/download/v1.17.0/opentelemetry-javaagent.jar</docker.buildArg.JAVA_AGENT_1_URL>
-        <docker.buildArg.JAVA_AGENT_2_URL>https://repo1.maven.org/maven2/io/prometheus/jmx/jmx_prometheus_javaagent/0.17.0/jmx_prometheus_javaagent-0.17.0.jar</docker.buildArg.JAVA_AGENT_2_URL>
-        <docker.buildArg.JAVA_AGENT_3_URL>https://github.com/signalfx/splunk-otel-java/releases/latest/download/splunk-otel-javaagent.jar</docker.buildArg.JAVA_AGENT_3_URL>
+        <docker.buildArg.JAVA_AGENT_2_URL>https://github.com/signalfx/splunk-otel-java/releases/latest/download/splunk-otel-javaagent.jar</docker.buildArg.JAVA_AGENT_2_URL>
     </properties>
 
     <dependencyManagement>
@@ -148,7 +147,7 @@
             <plugin>
                 <groupId>io.fabric8</groupId>
                 <artifactId>docker-maven-plugin</artifactId>
-                <version>0.34.1</version>
+                <version>0.40.2</version>
                 <configuration>
                     <images>
                         <image>

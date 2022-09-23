@@ -27,3 +27,4 @@ target
 platform/volumes
 *.iml
 *.DS_Store
+.run

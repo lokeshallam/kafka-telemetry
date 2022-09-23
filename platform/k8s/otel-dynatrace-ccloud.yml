@@ -1,0 +1,332 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: otel-collector
+  namespace: kp-test
+  labels:
+    app: otel-collector
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: otel-collector
+  template:
+    metadata:
+      labels:
+        app: otel-collector
+    spec:
+      containers:
+      - name: otel-collector
+        image: otel/opentelemetry-collector:latest
+        args:
+        - "--config=/conf/config.yml"
+        ports:
+        - containerPort: 1888
+          name: pprof
+        - containerPort: 9010
+          name: prom-metrics
+        - containerPort: 9011
+          name: prom-export
+        - containerPort: 13133
+          name: health-check
+        - containerPort: 4317
+          name: otlp
+        - containerPort: 55679
+          name: zpages
+        imagePullPolicy: Always
+        volumeMounts:
+        - name: config-volume
+          mountPath: /conf
+      volumes:
+      - name: config-volume
+        secret:
+          secretName: otel-collector-config
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: otel-collector-service
+  namespace: kp-test
+spec:
+  selector:
+    app: otel-collector
+  ports:
+    - name: otlp-port
+      protocol: TCP
+      port: 4317
+      targetPort: otlp
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: java-kafka-producer
+  namespace: kp-test
+  labels:
+    app: java-kafka-producer
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: java-kafka-producer
+  template:
+    metadata:
+      labels:
+        app: java-kafka-producer
+    spec:
+      containers:
+      - name: java-kafka-producer
+        image: mycompany.com/java-kafka-producer:0.0.1
+        ports:
+        - containerPort: 9000
+        env:
+        - name: CLIENT_ID
+          value: "producer1"
+        - name: BOOTSTRAP_URL
+          value: "pkc-ymrq7.us-east-2.aws.confluent.cloud:9092"
+        - name: SECURITY_PROTOCOL
+          value: "SASL_SSL"
+        - name: TOPIC
+          value: "demo.customer"
+        - name: SCHEMA
+          value: "customer" 
+        - name: PARTITIONS
+          value: "5"
+        - name: MESSAGES
+          value: "1000"
+        - name: BATCH_SIZE
+          value: "1"
+        - name: FREQUENCY_MS
+          value: "1000"
+        - name: PORT
+          value: "9000"
+        - name: SASL_MECHANISM
+          value: "PLAIN"
+        - name: SASL_USERNAME
+          valueFrom:
+            secretKeyRef:
+              name: kafka-credentials
+              key: username
+        - name: SASL_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: kafka-credentials
+              key: password
+        - name: SCHEMA_REGISTRY_AUTH
+          value: "true"
+        - name: SCHEMA_REGISTRY_URL
+          value: "https://psrc-zj6ny.us-east-2.aws.confluent.cloud"
+        - name: SCHEMA_REGISTRY_USERNAME
+          valueFrom:
+            secretKeyRef:
+              name: schema-credentials
+              key: username
+        - name: SCHEMA_REGISTRY_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: schema-credentials
+              key: password
+        - name: OTEL_SERVICE_NAME
+          value: "producer1"
+        - name: OTEL_RESOURCE_ATTRIBUTES
+          value: "service.name=producer1,service.version=0.0.1,mytag=myvalue"
+        - name: OTEL_TRACES_EXPORTER
+          value: "otlp"
+        - name: OTEL_EXPORTER_OTLP_ENDPOINT
+          value: "http://otel-collector-service.kp-test.svc.cluster.local:4317"
+        - name: OTEL_METRICS_EXPORTER
+          value: "none"
+        - name: OTEL_TRACES_SAMPLER
+          value: "traceidratio"
+        - name: OTEL_TRACES_SAMPLER_ARG
+          value: "1.0"
+        - name: JAVA_OPTS
+          value: "-Xms300M -Xmx300M -javaagent:/agents/opentelemetry-javaagent.jar"
+        livenessProbe:
+          httpGet:
+            path: /actuator/health/liveness
+            port: 9000
+          initialDelaySeconds: 15
+          periodSeconds: 10
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: java-kafka-streams
+  namespace: kp-test
+  labels:
+    app: java-kafka-streans
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: java-kafka-streams
+  template:
+    metadata:
+      labels:
+        app: java-kafka-streams
+    spec:
+      containers:
+      - name: java-kafka-streams
+        image: mycompany.com/java-kafka-streams:0.0.1
+        ports:
+        - containerPort: 9000
+        env:
+        - name: APP_ID
+          value: "kstream1"
+        - name: GROUP_ID
+          value: "kstream1"
+        - name: BOOTSTRAP_URL
+          value: "pkc-ymrq7.us-east-2.aws.confluent.cloud:9092"
+        - name: SECURITY_PROTOCOL
+          value: "SASL_SSL"
+        - name: INPUT_TOPIC
+          value: "demo.customer"
+        - name: OUTPUT_TOPIC
+          value: "demo.transform.customer" 
+        - name: ERROR_TOPIC
+          value: "demo.errors"
+        - name: STATE_STORE_CLEANUP
+          value: "false"
+        - name: IN_MEMORY_STATE
+          value: "false"
+        - name: STREAM_TYPE
+          value: "stateless"
+        - name: PORT
+          value: "9000"
+        - name: SASL_MECHANISM
+          value: "PLAIN"
+        - name: SASL_USERNAME
+          valueFrom:
+            secretKeyRef:
+              name: kafka-credentials
+              key: username
+        - name: SASL_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: kafka-credentials
+              key: password
+        - name: SCHEMA_REGISTRY_AUTH
+          value: "true"
+        - name: SCHEMA_REGISTRY_URL
+          value: "https://psrc-zj6ny.us-east-2.aws.confluent.cloud"
+        - name: SCHEMA_REGISTRY_USERNAME
+          valueFrom:
+            secretKeyRef:
+              name: schema-credentials
+              key: username
+        - name: SCHEMA_REGISTRY_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: schema-credentials
+              key: password
+        - name: OTEL_SERVICE_NAME
+          value: "kstream1"
+        - name: OTEL_RESOURCE_ATTRIBUTES
+          value: "service.name=kstream1,service.version=0.0.1,mytag=myvalue"
+        - name: OTEL_TRACES_EXPORTER
+          value: "otlp"
+        - name: OTEL_EXPORTER_OTLP_ENDPOINT
+          value: "http://otel-collector-service.kp-test.svc.cluster.local:4317"
+        - name: OTEL_METRICS_EXPORTER
+          value: "none"
+        - name: OTEL_TRACES_SAMPLER
+          value: "traceidratio"
+        - name: OTEL_TRACES_SAMPLER_ARG
+          value: "1.0"
+        - name: JAVA_OPTS
+          value: "-Xms300M -Xmx300M -javaagent:/agents/opentelemetry-javaagent.jar"
+        livenessProbe:
+          httpGet:
+            path: /actuator/health/liveness
+            port: 9000
+          initialDelaySeconds: 15
+          periodSeconds: 10
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: java-kafka-consumer
+  namespace: kp-test
+  labels:
+    app: java-kafka-consumer
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: java-kafka-consumer
+  template:
+    metadata:
+      labels:
+        app: java-kafka-consumer
+    spec:
+      containers:
+      - name: java-kafka-consumer
+        image: mycompany.com/java-kafka-consumer:0.0.1
+        ports:
+        - containerPort: 9000
+        env:
+        - name: CLIENT_ID
+          value: "consumer1"
+        - name: GROUP_ID
+          value: "consumer1"
+        - name: BOOTSTRAP_URL
+          value: "pkc-ymrq7.us-east-2.aws.confluent.cloud:9092"
+        - name: SECURITY_PROTOCOL
+          value: "SASL_SSL"
+        - name: TOPIC
+          value: "demo.transform.customer"
+        - name: OFFSET_DAYS
+          value: "0"
+        - name: POLL_TIMEOUT_SECS
+          value: "30"
+        - name: PORT
+          value: "9000"
+        - name: SASL_MECHANISM
+          value: "PLAIN"
+        - name: SASL_USERNAME
+          valueFrom:
+            secretKeyRef:
+              name: kafka-credentials
+              key: username
+        - name: SASL_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: kafka-credentials
+              key: password
+        - name: SCHEMA_REGISTRY_AUTH
+          value: "true"
+        - name: SCHEMA_REGISTRY_URL
+          value: "https://psrc-zj6ny.us-east-2.aws.confluent.cloud"
+        - name: SCHEMA_REGISTRY_USERNAME
+          valueFrom:
+            secretKeyRef:
+              name: schema-credentials
+              key: username
+        - name: SCHEMA_REGISTRY_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: schema-credentials
+              key: password
+        - name: OTEL_SERVICE_NAME
+          value: "consumer1"
+        - name: OTEL_RESOURCE_ATTRIBUTES
+          value: "service.name=consumer1,service.version=0.0.1,mytag=myvalue"
+        - name: OTEL_TRACES_EXPORTER
+          value: "otlp"
+        - name: OTEL_EXPORTER_OTLP_ENDPOINT
+          value: "http://otel-collector-service.kp-test.svc.cluster.local:4317"
+        - name: OTEL_METRICS_EXPORTER
+          value: "none"
+        - name: OTEL_TRACES_SAMPLER
+          value: "traceidratio"
+        - name: OTEL_TRACES_SAMPLER_ARG
+          value: "1.0"
+        - name: JAVA_OPTS
+          value: "-Xms300M -Xmx300M -javaagent:/agents/opentelemetry-javaagent.jar"
+        livenessProbe:
+          httpGet:
+            path: /actuator/health/liveness
+            port: 9000
+          initialDelaySeconds: 15
+          periodSeconds: 10
+
