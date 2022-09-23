@@ -82,7 +82,7 @@ spec:
         - name: CLIENT_ID
           value: "producer1"
         - name: BOOTSTRAP_URL
-          value: "pkc-ymrq7.us-east-2.aws.confluent.cloud:9092"
+          value: "pkc-abc123.us-east-2.aws.confluent.cloud:9092"
         - name: SECURITY_PROTOCOL
           value: "SASL_SSL"
         - name: TOPIC
@@ -176,7 +176,7 @@ spec:
         - name: GROUP_ID
           value: "kstream1"
         - name: BOOTSTRAP_URL
-          value: "pkc-ymrq7.us-east-2.aws.confluent.cloud:9092"
+          value: "pkc-abc123.us-east-2.aws.confluent.cloud:9092"
         - name: SECURITY_PROTOCOL
           value: "SASL_SSL"
         - name: INPUT_TOPIC
@@ -270,7 +270,7 @@ spec:
         - name: GROUP_ID
           value: "consumer1"
         - name: BOOTSTRAP_URL
-          value: "pkc-ymrq7.us-east-2.aws.confluent.cloud:9092"
+          value: "pkc-abc123.us-east-2.aws.confluent.cloud:9092"
         - name: SECURITY_PROTOCOL
           value: "SASL_SSL"
         - name: TOPIC
