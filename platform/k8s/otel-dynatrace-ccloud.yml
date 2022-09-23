@@ -114,7 +114,7 @@ spec:
         - name: SCHEMA_REGISTRY_AUTH
           value: "true"
         - name: SCHEMA_REGISTRY_URL
-          value: "https://psrc-zj6ny.us-east-2.aws.confluent.cloud"
+          value: "https://psrc-abc123.us-east-2.aws.confluent.cloud"
         - name: SCHEMA_REGISTRY_USERNAME
           valueFrom:
             secretKeyRef:
@@ -208,7 +208,7 @@ spec:
         - name: SCHEMA_REGISTRY_AUTH
           value: "true"
         - name: SCHEMA_REGISTRY_URL
-          value: "https://psrc-zj6ny.us-east-2.aws.confluent.cloud"
+          value: "https://psrc-abc123.us-east-2.aws.confluent.cloud"
         - name: SCHEMA_REGISTRY_USERNAME
           valueFrom:
             secretKeyRef:
@@ -296,7 +296,7 @@ spec:
         - name: SCHEMA_REGISTRY_AUTH
           value: "true"
         - name: SCHEMA_REGISTRY_URL
-          value: "https://psrc-zj6ny.us-east-2.aws.confluent.cloud"
+          value: "https://psrc-abc123.us-east-2.aws.confluent.cloud"
         - name: SCHEMA_REGISTRY_USERNAME
           valueFrom:
             secretKeyRef:
