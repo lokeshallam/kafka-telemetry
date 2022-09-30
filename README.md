@@ -26,6 +26,20 @@ is running. To build the project, go to the base directory and run `mvn install`
 will generate `docker` images for each and push them to your local repo. The `Dockerfile` for each project is located in
 the base directory for each module.
 
+To deploy the docker images to a remote repository, update the `docker.registry` and `docker.image.registry` in the base 
+`pom.xml` of this project. The `docker.registry` is the URl of the remote repository and the `docker.image.registry` is
+the first part of the docker image names for your company (`<registry>/<image-name>:<version`).
+```
+    <properties>
+        ...
+        <docker.registry>https://index.docker.io/v1/</docker.registry>
+        <docker.image.registry>com.mycompany</docker.image.registry>
+    </properties>
+```
+Then go to the base directory and run `mvn deploy -Ddocker.username=<username> -Ddocker.password=<password>`. This will
+deploy your docker images to the docker registry specified by `docker.registry` as both `linux/amd64` and `linux/arm64`
+architectures.
+
 ## Setup Project
 
 Now that the Kafka clients are built and have `docker` images in your local repo, you can run an observability environment
@@ -78,7 +92,7 @@ based on the agent's configuration. The configuration can be seen in the file `p
 
 ```
   producer1:
-    image: com.mycompany/java-kafka-producer:0.0.1
+    image: ${REGISTRY}/java-kafka-producer:0.0.1
     ...
     environment:
     ...
@@ -296,7 +310,7 @@ based on the agent's configuration. The configuration can be seen in the file `p
 
 ```
   producer1:
-    image: com.mycompany/java-kafka-producer:0.0.1
+    image: ${REGISTRY}/java-kafka-producer:0.0.1
     ...
     environment:
     ...
@@ -444,6 +458,7 @@ This environment is similar to [OTEL Dynatrace Setup](#otel-dynatrace-setup) exc
 docker but the applications are communicating to Confluent Cloud. Therefore, you must specify the following information
 pertaining to the Confluent Cloud cluster you are connecting to in the `.env` file in the base of the `platform` folder:
 ```
+REGISTRY=mycompany.com
 BOOTSTRAP_URL=pkc-abc123.us-east-2.aws.confluent.cloud:9092
 KAFKA_USERNAME=ABCDEFG012345678
 KAFKA_PASSWORD=aBcDeFgHiJkLmNoPqRsTuVwXyZ/0123456789/aBcDeFgHiJkLmNoPqRsTuVwXyZ
@@ -451,6 +466,10 @@ SCHEMA_URL=https://psrc-abc123.us-east-2.aws.confluent.cloud
 SCHEMA_USERNAME=ABCDEFG012345678
 SCHEMA_PASSWORD=aBcDeFgHiJkLmNoPqRsTuVwXyZ/0123456789/aBcDeFgHiJkLmNoPqRsTuVwXyZ
 ```
+Also, in this file make sure that the value for `REGISTRY` matches the value in for the Maven property
+`docker.image.registry` found in the `properties` section of the base project `pom.xml`. Both of these values should
+match your company registry for docker images (this would be the first section of the docker image name, 
+`<registry>/<image-name>:<version>`).
 
 The OTEL Collector configuration is defined in the file `platform/otel/otel-collector-dynatrace.yml`. The `receivers`
 section defines how the OTEL Collector will receive data from the clients.
@@ -491,9 +510,9 @@ To deploy the `java-kafka-consumer`, `java-kafka-producer`, and `java-kafka-stre
 to Kubernetes instead of docker follow the steps below.
 
 1. Make the following docker images are in your Kubernetes docker image repository:
-   * `mycompany.com/java-kafka-consumer:0.0.1`
-   * `mycompany.com/java-kafka-producer:0.0.1`
-   * `mycompany.com/java-kafka-streams:0.0.1`
+   * `com.mycompany/java-kafka-consumer:0.0.1`
+   * `com.mycompany/java-kafka-producer:0.0.1`
+   * `com.mycompany/java-kafka-streams:0.0.1`
    * `otel/opentelemetry-collector:latest`
 2. Update the file `platform/k8s/k8s.properties` with the properties for your environment
    * `namespace` - Kubernetes namespace to deploy to

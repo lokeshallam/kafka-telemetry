@@ -11,10 +11,10 @@
         <version>2.7.3</version>
     </parent>
 
-    <version>0.0.1</version>
     <groupId>com.mycompany</groupId>
     <artifactId>kafka-telemetry</artifactId>
     <packaging>pom</packaging>
+    <version>${revision}</version>
 
     <organization>
         <name>My Company</name>
@@ -26,6 +26,7 @@
     </description>
 
     <properties>
+        <revision>0.0.1</revision>
         <confluent.version>7.2.1</confluent.version>
         <kafka.version>3.2.1</kafka.version>
         <kafka.scala.version>2.13</kafka.scala.version>
@@ -36,6 +37,10 @@
         <lz4.version>1.8.0</lz4.version>
         <java.version>11</java.version>
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
+        <docker.registry>https://index.docker.io/v1/</docker.registry>
+        <docker.image.registry>com.mycompany</docker.image.registry>
+        <otel.agent.url>https://github.com/open-telemetry/opentelemetry-java-instrumentation/releases/download/v1.17.0/opentelemetry-javaagent.jar</otel.agent.url>
+        <splunk.otel.agent.url>https://github.com/signalfx/splunk-otel-java/releases/latest/download/splunk-otel-javaagent.jar</splunk.otel.agent.url>
     </properties>
 
     <repositories>

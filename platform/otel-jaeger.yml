@@ -281,7 +281,7 @@ services:
 ################## APPS ##################
 
   producer1:
-    image: com.mycompany/java-kafka-producer:0.0.1
+    image: ${REGISTRY}/java-kafka-producer:0.0.1
     hostname: producer1
     container_name: producer1
     links:
@@ -329,7 +329,7 @@ services:
       retries: 20
 
   kstream1:
-    image: com.mycompany/java-kafka-streams:0.0.1
+    image: ${REGISTRY}/java-kafka-streams:0.0.1
     hostname: kstream1
     container_name: kstream1
     links:
@@ -381,7 +381,7 @@ services:
       retries: 20
 
   consumer1:
-    image: com.mycompany/java-kafka-consumer:0.0.1
+    image: ${REGISTRY}/java-kafka-consumer:0.0.1
     hostname: consumer1
     container_name: consumer1
     links:

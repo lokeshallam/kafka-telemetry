@@ -8,10 +8,9 @@
     <parent>
         <groupId>com.mycompany</groupId>
         <artifactId>kafka-telemetry</artifactId>
-        <version>0.0.1</version>
+        <version>${revision}</version>
     </parent>
 
-    <version>0.0.1</version>
     <artifactId>java-kafka-streams</artifactId>
     <packaging>jar</packaging>
 
@@ -23,12 +22,6 @@
     <description>
         Sample Java Kafka Streams Application
     </description>
-
-    <properties>
-        <docker.buildArg.JAR_FILE>target/${project.artifactId}-${project.version}.jar</docker.buildArg.JAR_FILE>
-        <docker.buildArg.JAVA_AGENT_1_URL>https://github.com/open-telemetry/opentelemetry-java-instrumentation/releases/download/v1.17.0/opentelemetry-javaagent.jar</docker.buildArg.JAVA_AGENT_1_URL>
-        <docker.buildArg.JAVA_AGENT_2_URL>https://github.com/signalfx/splunk-otel-java/releases/latest/download/splunk-otel-javaagent.jar</docker.buildArg.JAVA_AGENT_2_URL>
-    </properties>
 
     <dependencyManagement>
         <dependencies>
@@ -159,20 +152,41 @@
                 <artifactId>docker-maven-plugin</artifactId>
                 <version>0.40.2</version>
                 <configuration>
+                    <registry>${docker.registry}</registry>
+                    <authConfig>
+                        <username>${docker.username}</username>
+                        <password>${docker.password}</password>
+                    </authConfig>
                     <images>
                         <image>
-                            <name>${project.groupId}/${project.artifactId}:${project.version}</name>
+                            <name>${docker.image.registry}/${project.artifactId}:${project.version}</name>
                             <build>
                                 <dockerFile>${project.basedir}/Dockerfile</dockerFile>
+                                <buildx>
+                                    <platforms>linux/amd64,linux/arm64</platforms>
+                                </buildx>
+                                <args>
+                                    <JAR_FILE>target/${project.artifactId}-${project.version}.jar</JAR_FILE>
+                                    <JAVA_AGENT_1_URL>${otel.agent.url}</JAVA_AGENT_1_URL>
+                                    <JAVA_AGENT_2_URL>${splunk.otel.agent.url}</JAVA_AGENT_2_URL>
+                                </args>
                             </build>
                         </image>
                     </images>
                 </configuration>
                 <executions>
                     <execution>
+                        <id>docker-local</id>
                         <phase>install</phase>
                         <goals>
                             <goal>build</goal>
+                        </goals>
+                    </execution>
+                    <execution>
+                        <id>docker-remote</id>
+                        <phase>deploy</phase>
+                        <goals>
+                            <goal>push</goal>
                         </goals>
                     </execution>
                 </executions>
