@@ -41,6 +41,7 @@
         <docker.image.registry>com.mycompany</docker.image.registry>
         <otel.agent.url>https://github.com/open-telemetry/opentelemetry-java-instrumentation/releases/download/v1.17.0/opentelemetry-javaagent.jar</otel.agent.url>
         <splunk.otel.agent.url>https://github.com/signalfx/splunk-otel-java/releases/latest/download/splunk-otel-javaagent.jar</splunk.otel.agent.url>
+        <honeycomb.otel.agent.url>https://github.com/honeycombio/honeycomb-opentelemetry-java/releases/download/v1.4.0/honeycomb-opentelemetry-javaagent-1.4.0.jar</honeycomb.otel.agent.url>
     </properties>
 
     <repositories>

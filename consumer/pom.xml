@@ -147,6 +147,7 @@
                                     <JAR_FILE>target/${project.artifactId}-${project.version}.jar</JAR_FILE>
                                     <JAVA_AGENT_1_URL>${otel.agent.url}</JAVA_AGENT_1_URL>
                                     <JAVA_AGENT_2_URL>${splunk.otel.agent.url}</JAVA_AGENT_2_URL>
+                                    <JAVA_AGENT_3_URL>${honeycomb.otel.agent.url}</JAVA_AGENT_3_URL>
                                 </args>
                             </build>
                         </image>

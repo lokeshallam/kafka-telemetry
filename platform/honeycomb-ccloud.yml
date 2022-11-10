@@ -1,0 +1,293 @@
+version: '3.x'
+services:
+
+################## KAFKA CONNECT ##################
+
+  connect1:
+    image: confluentinc/cp-server-connect:${CONFLUENT_VERSION}
+    hostname: connect1
+    container_name: connect1
+    command:
+      - bash
+      - -c
+      - |
+        echo "Installing Connectors"
+        confluent-hub install --no-prompt confluentinc/kafka-connect-jdbc:10.2.6
+        curl -k -L https://jdbc.postgresql.org/download/postgresql-42.3.1.jar -o /usr/share/java/postgresql-42.3.1.jar
+        curl -k -L https://github.com/honeycombio/honeycomb-opentelemetry-java/releases/download/v1.4.0/honeycomb-opentelemetry-javaagent-1.4.0.jar -o /usr/share/java/honeycomb-opentelemetry-javaagent.jar
+        curl -k -L https://github.com/open-telemetry/opentelemetry-java-instrumentation/releases/download/v1.17.0/opentelemetry-javaagent.jar -o /usr/share/java/cp-base-new/opentelemetry-javaagent.jar
+        #
+        echo "Starting Kafka Connect server"
+        /etc/confluent/docker/run &
+        sleep infinity
+    ports:
+      - 8083:8083
+    environment:
+      CONNECT_BOOTSTRAP_SERVERS: ${BOOTSTRAP_URL}
+      CONNECT_SECURITY_PROTOCOL: SASL_SSL
+      CONNECT_REST_ADVERTISED_HOST_NAME: connect1
+      CONNECT_REST_PORT: 8083
+      CONNECT_GROUP_ID: docker-connect-cluster
+      CONNECT_CONFIG_STORAGE_TOPIC: docker-connect-configs
+      CONNECT_CONFIG_STORAGE_REPLICATION_FACTOR: 3
+      CONNECT_OFFSET_FLUSH_INTERVAL_MS: 10000
+      CONNECT_OFFSET_STORAGE_TOPIC: docker-connect-offsets
+      CONNECT_OFFSET_STORAGE_REPLICATION_FACTOR: 3
+      CONNECT_STATUS_STORAGE_TOPIC: docker-connect-status
+      CONNECT_STATUS_STORAGE_REPLICATION_FACTOR: 3
+      CONNECT_KEY_CONVERTER: io.confluent.connect.avro.AvroConverter
+      CONNECT_KEY_CONVERTER_SCHEMA_REGISTRY_URL: ${SCHEMA_URL}
+      CONNECT_KEY_CONVERTER_BASIC_AUTH_CREDENTIALS_SOURCE: USER_INFO
+      CONNECT_KEY_CONVERTER_SCHEMA_REGISTRY_BASIC_AUTH_USER_INFO: ${SCHEMA_USERNAME}:${SCHEMA_PASSWORD}
+      CONNECT_KEY_SUBJECT_NAME_STRATEGY: io.confluent.kafka.serializers.subject.RecordNameStrategy
+      CONNECT_VALUE_CONVERTER: io.confluent.connect.avro.AvroConverter
+      CONNECT_VALUE_CONVERTER_SCHEMA_REGISTRY_URL: ${SCHEMA_URL}
+      CONNECT_VALUE_CONVERTER_BASIC_AUTH_CREDENTIALS_SOURCE: USER_INFO
+      CONNECT_VALUE_CONVERTER_SCHEMA_REGISTRY_BASIC_AUTH_USER_INFO: ${SCHEMA_USERNAME}:${SCHEMA_PASSWORD}
+      CONNECT_VALUE_SUBJECT_NAME_STRATEGY: io.confluent.kafka.serializers.subject.RecordNameStrategy
+      CONNECT_INTERNAL_KEY_CONVERTER: org.apache.kafka.connect.json.JsonConverter
+      CONNECT_INTERNAL_VALUE_CONVERTER: org.apache.kafka.connect.json.JsonConverter
+      CONNECT_CONNECTOR_CLIENT_CONFIG_OVERRIDE_POLICY: All
+      CONNECT_LISTENERS: http://0.0.0.0:8083
+      CONNECT_REST_ADVERTISED_LISTENER: http
+      CONNECT_SASL_MECHANISM: PLAIN
+      CONNECT_SASL_JAAS_CONFIG: >-
+        org.apache.kafka.common.security.plain.PlainLoginModule required
+        username="${KAFKA_USERNAME}"
+        password="${KAFKA_PASSWORD}";
+      # Set in seconds, this was changed to allow for detection of new topics and partitions quicker by the
+      # JDBC sink connector (default is five minutes). Comment out this setting for overall better consumer
+      # performance.
+      CONNECT_METADATA_MAX_AGE_MS: 60
+      CONNECT_PLUGIN_PATH: /usr/share/java,/usr/share/confluent-hub-components
+      CONNECT_LOG4J_LOGGERS: org.apache.zookeeper=ERROR,org.I0Itec.zkclient=ERROR,org.reflections=ERROR,org.apache.kafka=ERROR,org.apache.hadoop=ERROR,org.apache.parquet=ERROR,io.confluent=ERROR,org.apache.kafka.connect.runtime=ERROR
+      #KAFKA_JMX_OPTS: "-Dcom.sun.management.jmxremote -Dcom.sun.management.jmxremote.authenticate=false -Dcom.sun.management.jmxremote.ssl=false -Dcom.sun.management.jmxremote.port=9010 -Dcom.sun.management.jmxremote.rmi.port=9010 -Djava.rmi.server.hostname=10.0.0.193"
+      #OTEL_SERVICE_NAME: "connect1"
+      #OTEL_TRACES_EXPORTER: "otlp"
+      #OTEL_EXPORTER_OTLP_ENDPOINT: "http://collector.${DOMAIN}:4317"
+      #OTEL_METRICS_EXPORTER: "none"
+      #OTEL_TRACES_SAMPLER: "traceidratio"
+      #OTEL_TRACES_SAMPLER_ARG: "1.0"
+      SERVICE_NAME: "connect1"
+      HONEYCOMB_API_KEY: ${HONEYCOMB_API_TOKEN}
+      HONEYCOMB_METRICS_DATASET: ${HONEYCOMB_DATASET}
+      OTEL_EXPORTER_OTLP_PROTOCOL: "http/protobuf"
+      KAFKA_OPTS: >-
+        -javaagent:/usr/share/java/honeycomb-opentelemetry-javaagent.jar
+      KAFKA_JVM_PERFORMANCE_OPTS: >-
+        -server -XX:+UseG1GC -XX:GCTimeRatio=1
+        -XX:MinHeapFreeRatio=10 -XX:MaxHeapFreeRatio=20
+        -XX:MaxGCPauseMillis=10000 -XX:InitiatingHeapOccupancyPercent=35 -XX:+ExplicitGCInvokesConcurrent
+        -XX:MaxInlineLevel=15 -Djava.awt.headless=true
+      KAFKA_HEAP_OPTS: "-Xms${CONNECT_HEAP} -Xmx${CONNECT_HEAP}"
+    volumes:
+      - ./schemas:/schemas:ro
+    networks:
+      - kafka-network
+    healthcheck:
+      test: ["CMD", "bash", "-c", "curl http://connect1:8083/connectors"]
+      start_period: 30s
+      interval: 10s
+      timeout: 10s
+      retries: 10
+
+
+################## APPS ##################
+
+  producer1:
+    image: ${REGISTRY}/java-kafka-producer:0.0.1
+    hostname: producer1
+    container_name: producer1
+    ports:
+      - "9000:9000"
+      - "9100:9100"
+    environment:
+      CLIENT_ID: producer1
+      BOOTSTRAP_URL: ${BOOTSTRAP_URL}
+      SECURITY_PROTOCOL: SASL_SSL
+      SCHEMA_REGISTRY_URL: ${SCHEMA_URL}
+      TOPIC: demo.customer
+      SCHEMA: customer
+      PARTITIONS: 5
+      MESSAGES: 100
+      BATCH_SIZE: 1
+      FREQUENCY_MS: 5000
+      PORT: 9000
+      SASL_MECHANISM: PLAIN
+      SASL_USERNAME: ${KAFKA_USERNAME}
+      SASL_PASSWORD: ${KAFKA_PASSWORD}
+      SCHEMA_REGISTRY_AUTH: "true"
+      SCHEMA_REGISTRY_USERNAME: ${SCHEMA_USERNAME}
+      SCHEMA_REGISTRY_PASSWORD: ${SCHEMA_PASSWORD}
+      #OTEL_SERVICE_NAME: "producer1"
+      #OTEL_RESOURCE_ATTRIBUTES: "service.name=producer1,service.version=0.0.1,mytag=myvalue"
+      #OTEL_TRACES_EXPORTER: "otlp"
+      #OTEL_EXPORTER_OTLP_ENDPOINT: "http://collector.${DOMAIN}:4317"
+      #OTEL_METRICS_EXPORTER: "none"
+      #OTEL_TRACES_SAMPLER: "traceidratio"
+      #OTEL_TRACES_SAMPLER_ARG: "1.0"
+      SERVICE_NAME: "producer1"
+      HONEYCOMB_API_KEY: ${HONEYCOMB_API_TOKEN}
+      HONEYCOMB_METRICS_DATASET: ${HONEYCOMB_DATASET}
+      JAVA_OPTS: >-
+        -Xms1G -Xmx1G
+        -javaagent:/agents/honeycomb-opentelemetry-javaagent-1.4.0.jar
+    networks:
+      - kafka-network
+    healthcheck:
+      test: ["CMD", "bash", "-c", "curl http://producer1.${DOMAIN}:9000/actuator/health | grep -e '\"status\":\"UP\"'"]
+      interval: 10s
+      timeout: 10s
+      retries: 20
+
+  kstream1:
+    image: ${REGISTRY}/java-kafka-streams:0.0.1
+    hostname: kstream1
+    container_name: kstream1
+    links:
+      - producer1
+    depends_on:
+      producer1:
+        condition: service_healthy
+    ports:
+      - "9001:9001"
+      - "9101:9101"
+    environment:
+      APP_ID: kstream1
+      GROUP_ID: kstream1
+      BOOTSTRAP_URL: ${BOOTSTRAP_URL}
+      SECURITY_PROTOCOL: SASL_SSL
+      SCHEMA_REGISTRY_URL: ${SCHEMA_URL}
+      INPUT_TOPIC: demo.customer
+      OUTPUT_TOPIC: demo.transform.customer
+      ERROR_TOPIC: demo.errors
+      STATE_STORE_CLEANUP: "false"
+      IN_MEMORY_STATE: "false"
+      STREAM_TYPE: stateless
+      STATE_DIR: /data
+      PORT: 9001
+      SASL_MECHANISM: PLAIN
+      SASL_USERNAME: ${KAFKA_USERNAME}
+      SASL_PASSWORD: ${KAFKA_PASSWORD}
+      SCHEMA_REGISTRY_AUTH: "true"
+      SCHEMA_REGISTRY_USERNAME: ${SCHEMA_USERNAME}
+      SCHEMA_REGISTRY_PASSWORD: ${SCHEMA_PASSWORD}
+      #OTEL_SERVICE_NAME: "kstream1"
+      #OTEL_RESOURCE_ATTRIBUTES: "service.name=kstream1,service.version=0.0.1,mytag=myvalue"
+      #OTEL_TRACES_EXPORTER: "otlp"
+      #OTEL_EXPORTER_OTLP_ENDPOINT: "http://collector.${DOMAIN}:4317"
+      #OTEL_METRICS_EXPORTER: "none"
+      #OTEL_TRACES_SAMPLER: "traceidratio"
+      #OTEL_TRACES_SAMPLER_ARG: "1.0"
+      SERVICE_NAME: "kstream1"
+      HONEYCOMB_API_KEY: ${HONEYCOMB_API_TOKEN}
+      HONEYCOMB_METRICS_DATASET: ${HONEYCOMB_DATASET}
+      JAVA_OPTS: >-
+        -Xms1G -Xmx1G
+        -javaagent:/agents/honeycomb-opentelemetry-javaagent-1.4.0.jar
+    volumes:
+      - ./volumes/kstreams-1:/data
+    networks:
+      - kafka-network
+    healthcheck:
+      test: ["CMD", "bash", "-c", "curl http://kstream1.${DOMAIN}:9001/actuator/health | grep -e '\"status\":\"UP\"'"]
+      interval: 10s
+      timeout: 10s
+      retries: 20
+  postgres:
+    image: postgres
+    hostname: postgres
+    container_name: postgres
+    ports:
+      - 5432:5432
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgrespass
+      POSTGRES_DB: kafka
+      PGDATA: /data/postgres
+    volumes:
+      # parallels on mac os does not support hard links, that's why we have to do this
+      - postgres-data:/data/postgres
+    networks:
+      - kafka-network
+
+  client:
+    image: kafka-client:0.0.1
+    build: ./client
+    hostname: client.${DOMAIN}
+    container_name: client
+    command:
+      - bash
+      - -c
+      - |
+        touch /tmp/initialized
+        tail -f /dev/null
+    volumes:
+      - ./client/scripts:/scripts:ro
+    networks:
+      - kafka-network
+    healthcheck:
+      test: ["CMD", "bash", "-c", "find /tmp/initialized"]
+      start_period: 60s
+      interval: 15s
+      timeout: 15s
+      retries: 30
+    
+  consumer1:
+    image: ${REGISTRY}/java-kafka-consumer:0.0.1
+    hostname: consumer1
+    container_name: consumer1
+    links:
+      - kstream1
+    depends_on:
+      kstream1:
+        condition: service_healthy
+    ports:
+      - "9002:9002"
+      - "9102:9102"
+    environment:
+      CLIENT_ID: consumer1
+      GROUP_ID: consumer1
+      BOOTSTRAP_URL: ${BOOTSTRAP_URL}
+      SECURITY_PROTOCOL: SASL_SSL
+      SCHEMA_REGISTRY_URL: ${SCHEMA_URL}
+      TOPIC: demo.transform.customer
+      OFFSET_DAYS: 0
+      POLL_TIMEOUT_SECS: 30
+      PORT: 9002
+      SASL_MECHANISM: PLAIN
+      SASL_USERNAME: ${KAFKA_USERNAME}
+      SASL_PASSWORD: ${KAFKA_PASSWORD}
+      SCHEMA_REGISTRY_AUTH: "true"
+      SCHEMA_REGISTRY_USERNAME: ${SCHEMA_USERNAME}
+      SCHEMA_REGISTRY_PASSWORD: ${SCHEMA_PASSWORD}
+      #OTEL_SERVICE_NAME: "consumer1"
+      #OTEL_RESOURCE_ATTRIBUTES: "service.name=consumer1,service.version=0.0.1,mytag=myvalue"
+      #OTEL_TRACES_EXPORTER: "otlp"
+      #OTEL_EXPORTER_OTLP_ENDPOINT: "http://collector.${DOMAIN}:4317"
+      #OTEL_METRICS_EXPORTER: "none"
+      #OTEL_TRACES_SAMPLER: "traceidratio"
+      #OTEL_TRACES_SAMPLER_ARG: "1.0"
+      SERVICE_NAME: "consumer1"
+      HONEYCOMB_API_KEY: ${HONEYCOMB_API_TOKEN}
+      HONEYCOMB_METRICS_DATASET: ${HONEYCOMB_DATASET}
+      JAVA_OPTS: >-
+        -Xms1G -Xmx1G
+        -javaagent:/agents/honeycomb-opentelemetry-javaagent-1.4.0.jar
+    networks:
+      - kafka-network
+    healthcheck:
+      test: ["CMD", "bash", "-c", "curl http://consumer1.${DOMAIN}:9002/actuator/health | grep -e '\"status\":\"UP\"'"]
+      interval: 10s
+      timeout: 10s
+      retries: 20
+
+networks:
+  kafka-network:
+    name: ${DOMAIN}
+
+
+
+volumes:
+  postgres-data:
+    name: postgres_volume_name
