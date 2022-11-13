@@ -13,9 +13,9 @@ services:
       - |
         echo "Installing Connectors"
         confluent-hub install --no-prompt confluentinc/kafka-connect-jdbc:10.2.6
+        confluent-hub install --no-prompt confluentinc/kafka-connect-datagen:0.6.0
         curl -k -L https://jdbc.postgresql.org/download/postgresql-42.3.1.jar -o /usr/share/java/postgresql-42.3.1.jar
         curl -k -L https://github.com/honeycombio/honeycomb-opentelemetry-java/releases/download/v1.4.0/honeycomb-opentelemetry-javaagent-1.4.0.jar -o /usr/share/java/honeycomb-opentelemetry-javaagent.jar
-        curl -k -L https://github.com/open-telemetry/opentelemetry-java-instrumentation/releases/download/v1.17.0/opentelemetry-javaagent.jar -o /usr/share/java/cp-base-new/opentelemetry-javaagent.jar
         #
         echo "Starting Kafka Connect server"
         /etc/confluent/docker/run &
@@ -47,6 +47,15 @@ services:
       CONNECT_VALUE_SUBJECT_NAME_STRATEGY: io.confluent.kafka.serializers.subject.RecordNameStrategy
       CONNECT_INTERNAL_KEY_CONVERTER: org.apache.kafka.connect.json.JsonConverter
       CONNECT_INTERNAL_VALUE_CONVERTER: org.apache.kafka.connect.json.JsonConverter
+      CONNECT_SSL_ENDPOINT_IDENTIFICATION.ALGORITHM: https
+      CONNECT_PRODUCER_SSL_ENDPOINT_IDENTIFICATION.ALGORITHM: https
+      CONNECT_CONSUMER_SSL_ENDPOINT_IDENTIFICATION.ALGORITHM: https
+      CONNECT_CONSUMER_SASL_MECHANISM: PLAIN
+      CONNECT_PRODUCER_SASL_MECHANISM: PLAIN
+      CONNECT_PRODUCER_SASL_JAAS_CONFIG: "org.apache.kafka.common.security.plain.PlainLoginModule required username=\"${KAFKA_USERNAME}\" password=\"${KAFKA_PASSWORD}\";"
+      CONNECT_PRODUCER_SECURITY_PROTOCOL: SASL_SSL
+      CONNECT_CONSUMER_SASL_JAAS_CONFIG: "org.apache.kafka.common.security.plain.PlainLoginModule required username=\"${KAFKA_USERNAME}\" password=\"${KAFKA_PASSWORD}\";"
+      CONNECT_CONSUMER_SECURITY_PROTOCOL: SASL_SSL
       CONNECT_CONNECTOR_CLIENT_CONFIG_OVERRIDE_POLICY: All
       CONNECT_LISTENERS: http://0.0.0.0:8083
       CONNECT_REST_ADVERTISED_LISTENER: http
@@ -60,8 +69,9 @@ services:
       # performance.
       CONNECT_METADATA_MAX_AGE_MS: 60
       CONNECT_PLUGIN_PATH: /usr/share/java,/usr/share/confluent-hub-components
-      CONNECT_LOG4J_LOGGERS: org.apache.zookeeper=ERROR,org.I0Itec.zkclient=ERROR,org.reflections=ERROR,org.apache.kafka=ERROR,org.apache.hadoop=ERROR,org.apache.parquet=ERROR,io.confluent=ERROR,org.apache.kafka.connect.runtime=ERROR
+      CONNECT_LOG4J_LOGGERS: org.apache.zookeeper=ERROR,org.I0Itec.zkclient=ERROR,org.reflections=ERROR,org.apache.kafka=INFO,org.apache.hadoop=ERROR,org.apache.parquet=ERROR,io.confluent=INFO,org.apache.kafka.connect.runtime=INFO
       #KAFKA_JMX_OPTS: "-Dcom.sun.management.jmxremote -Dcom.sun.management.jmxremote.authenticate=false -Dcom.sun.management.jmxremote.ssl=false -Dcom.sun.management.jmxremote.port=9010 -Dcom.sun.management.jmxremote.rmi.port=9010 -Djava.rmi.server.hostname=10.0.0.193"
+      #KAFKA_JMX_OPTS: "-Dlog4j.configuration=file:/etc/kafka/log4j.properties"
       #OTEL_SERVICE_NAME: "connect1"
       #OTEL_TRACES_EXPORTER: "otlp"
       #OTEL_EXPORTER_OTLP_ENDPOINT: "http://collector.${DOMAIN}:4317"
@@ -210,12 +220,28 @@ services:
       - postgres-data:/data/postgres
     networks:
       - kafka-network
-
+  pgadmin:
+    image: dpage/pgadmin4
+    hostname: pgadmin
+    container_name: pgadmin
+    restart: always
+    environment:
+      PGADMIN_DEFAULT_EMAIL: admin@admin.com
+      PGADMIN_DEFAULT_PASSWORD: SomeCrazyPassword124534
+    ports:
+      - "5050:80"
+    networks:
+      - kafka-network
   client:
     image: kafka-client:0.0.1
     build: ./client
     hostname: client.${DOMAIN}
     container_name: client
+    links:
+      - connect1
+    depends_on:
+      connect1:
+        condition: service_healthy
     command:
       - bash
       - -c
@@ -224,6 +250,7 @@ services:
         tail -f /dev/null
     volumes:
       - ./client/scripts:/scripts:ro
+      - ./schemas:/schemas:ro
     networks:
       - kafka-network
     healthcheck:
